@@ -78,8 +78,10 @@ class _PdfViewerWidgetState extends ConsumerState<PdfViewerWidget> {
     final tool = ref.watch(annotationToolProvider);
     final panEnabled = tool != AnnotationTool.select;
 
-    // While editing a text annotation, disable pdfrx's keyboard navigation so
-    // Space/arrows go to the TextField instead of scrolling the page.
+    // While editing a text annotation: (1) disable pdfrx keyboard navigation,
+    // and (2) stop pdfrx's key-handler FocusNode from requesting focus — it was
+    // stealing focus from the TextField, so Space/keys went to the viewer
+    // (scrolling) instead of the text input.
     final isEditingText = ref.watch(editingAnnotationProvider) != null;
 
     return PdfViewer(
@@ -89,6 +91,9 @@ class _PdfViewerWidgetState extends ConsumerState<PdfViewerWidget> {
         backgroundColor: Colors.transparent,
         panEnabled: panEnabled,
         enableKeyboardNavigation: !isEditingText,
+        keyHandlerParams: PdfViewerKeyHandlerParams(
+          canRequestFocus: !isEditingText,
+        ),
         pageDropShadow: const BoxShadow(
           color: Colors.black26,
           blurRadius: 6,
