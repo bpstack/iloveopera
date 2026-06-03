@@ -189,6 +189,18 @@ class _SpyStore implements AnnotationStore {
   void clear() => _items.clear();
 
   @override
+  bool undo() => false;
+
+  @override
+  bool redo() => false;
+
+  @override
+  bool get canUndo => false;
+
+  @override
+  bool get canRedo => false;
+
+  @override
   String toJson() => throw UnimplementedError();
 
   @override

@@ -499,10 +499,10 @@ Verificado contra la documentación de pub.dev (2026-06-03):
 - Nota: rediseño visual del toolbar aplazado a Fase 6 (spec en §Fase 6)
 - **DoD:** tapar texto del PDF y escribir encima con fuente configurable.
 
-### Fase 3 — Anotación avanzada + historial
-- [ ] Dibujo a mano alzada (StrokeAnno)
-- [ ] Resaltado de zonas (HighlightAnno)
-- [ ] Undo / redo sobre toda la pila de anotaciones
+### Fase 3 — Anotación avanzada + historial ✅
+- [x] Dibujo a mano alzada (StrokeAnno)
+- [x] Resaltado de zonas (HighlightAnno)
+- [x] Undo / redo sobre toda la pila de anotaciones
 - **DoD:** dibujar, resaltar y deshacer/rehacer sin perder estado.
 
 ### Fase 4 — Guardado y export
