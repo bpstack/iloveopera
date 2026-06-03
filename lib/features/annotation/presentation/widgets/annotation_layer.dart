@@ -34,6 +34,20 @@ class _AnnotationLayerState extends ConsumerState<AnnotationLayer> {
   double _resizeDx = 0;
   double _resizeDy = 0;
 
+  // One GlobalKey per annotation: lets us read the actual rendered size
+  // (from the previous frame) to position the resize handle correctly even
+  // when the annotation is auto-sized (e.g. text with rect.width == 0).
+  final Map<String, GlobalKey> _keys = {};
+
+  GlobalKey _keyFor(String id) => _keys.putIfAbsent(id, GlobalKey.new);
+
+  /// Rendered pixel size of annotation [id] from the previous frame, or null
+  /// if the widget hasn't been laid out yet (first frame).
+  Size? _renderedSize(String id) {
+    final rb = _keys[id]?.currentContext?.findRenderObject() as RenderBox?;
+    return rb?.hasSize == true ? rb!.size : null;
+  }
+
   void _onResizeUpdate(String id, double dx, double dy) {
     setState(() {
       _resizingId = id;
@@ -46,11 +60,12 @@ class _AnnotationLayerState extends ConsumerState<AnnotationLayer> {
     final a = ref.read(annotationsProvider).where((a) => a.id == id).firstOrNull;
     if (a != null) {
       final r = a.rect;
-      // Text: only width matters (height stays 0 = auto).
-      // Rect/highlight: both width and height.
-      final baseW = r.width > 0 ? r.width : 120.0;
-      final baseH = r.height > 0 ? r.height : 40.0;
+      final rendered = _renderedSize(id);
+      // Base from stored rect; fall back to rendered size for auto-size text.
+      final baseW = r.width > 0 ? r.width : (rendered != null ? rendered.width / scale : 80.0);
+      final baseH = r.height > 0 ? r.height : (rendered != null ? rendered.height / scale : 20.0);
       final newW = (baseW + _resizeDx / scale).clamp(20.0, double.infinity);
+      // Text height stays 0 (auto-height); rect/highlight get explicit height.
       final newH = a is TextAnnotation
           ? 0.0
           : (baseH + _resizeDy / scale).clamp(10.0, double.infinity);
@@ -127,24 +142,35 @@ class _AnnotationLayerState extends ConsumerState<AnnotationLayer> {
   Widget _buildResizeHandle(Annotation a, double scale) {
     final isResizing = _resizingId == a.id;
 
-    // Compute effective width/height in PDF points for handle placement.
-    final double effW;
-    final double effH;
-    if (a is TextAnnotation) {
-      // For auto-size text (width==0) use 120 pt as the base.
-      final baseW = a.rect.width > 0 ? a.rect.width : 120.0;
-      effW = (baseW + (isResizing ? _resizeDx / scale : 0)).clamp(20.0, double.infinity);
-      effH = a.rect.height > 0
-          ? (a.rect.height + (isResizing ? _resizeDy / scale : 0)).clamp(10.0, double.infinity)
-          : 20.0; // approximate for auto-height text
+    // Prefer the actual rendered pixel size (GlobalKey) so the handle lands
+    // exactly at the corner even for auto-sized text (rect.width == 0).
+    final rendered = _renderedSize(a.id);
+
+    double effWpx; // effective width in screen pixels
+    double effHpx; // effective height in screen pixels
+
+    if (isResizing) {
+      // During an active drag: base is either the stored rect or the last
+      // rendered size; add the live delta.
+      final baseWpx = a.rect.width > 0
+          ? a.rect.width * scale
+          : (rendered?.width ?? 80.0);
+      final baseHpx = a.rect.height > 0
+          ? a.rect.height * scale
+          : (rendered?.height ?? 20.0);
+      effWpx = (baseWpx + _resizeDx).clamp(20.0, double.infinity);
+      effHpx = a is TextAnnotation
+          ? (rendered?.height ?? baseHpx) // text height always auto
+          : (baseHpx + _resizeDy).clamp(10.0, double.infinity);
     } else {
-      effW = (a.rect.width + (isResizing ? _resizeDx / scale : 0)).clamp(10.0, double.infinity);
-      effH = (a.rect.height + (isResizing ? _resizeDy / scale : 0)).clamp(10.0, double.infinity);
+      // Not resizing: use rendered size if available, else rect.
+      effWpx = rendered?.width ?? (a.rect.width > 0 ? a.rect.width * scale : 80.0);
+      effHpx = rendered?.height ?? (a.rect.height > 0 ? a.rect.height * scale : 20.0);
     }
 
-    // Place the 14×14 handle centred on the bottom-right corner.
-    final left = (a.rect.x * scale + effW * scale - 7).clamp(0.0, double.infinity);
-    final top  = (a.rect.y * scale + effH * scale - 7).clamp(0.0, double.infinity);
+    // Centre the 14×14 handle on the bottom-right corner.
+    final left = (a.rect.x * scale + effWpx - 7).clamp(0.0, double.infinity);
+    final top  = (a.rect.y * scale + effHpx - 7).clamp(0.0, double.infinity);
 
     return Positioned(
       left: left,
@@ -193,7 +219,7 @@ class _AnnotationLayerState extends ConsumerState<AnnotationLayer> {
       width: displayW != null ? displayW * scale : null,
       height: displayH != null ? displayH * scale : null,
       child: _AnnotationWidget(
-        key: ValueKey(a.id),
+        key: _keyFor(a.id),
         annotation: a,
         scale: scale,
         isSelected: a.id == selectedId,
