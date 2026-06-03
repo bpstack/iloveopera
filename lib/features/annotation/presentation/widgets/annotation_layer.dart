@@ -182,6 +182,7 @@ Future<String?> showAnnotationTextDialog(
 }) {
   return showDialog<String>(
     context: context,
+    useRootNavigator: true,
     builder: (_) => _TextInputDialog(initialText: initialText),
   );
 }

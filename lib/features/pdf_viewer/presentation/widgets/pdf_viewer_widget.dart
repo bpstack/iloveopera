@@ -105,15 +105,13 @@ class _PdfViewerWidgetState extends ConsumerState<PdfViewerWidget> {
           }
           return null;
         },
-        // Annotations are painted in page coordinates by pdfrx (R5):
-        // the builder is called for each visible page with the page's
-        // bounding rect on screen, and our AnnotationLayer handles the
-        // points-to-pixels mapping via a single scale factor.
+        // pdfrx already wraps pageOverlaysBuilder output in a Positioned
+        // at the page rect. Adding our own Positioned.fromRect(pageRect)
+        // inside would double-offset the overlay, mis-placing taps and
+        // the cursor region. Return AnnotationLayer directly — it fills
+        // the pdfrx-provided Stack which is already sized to the page.
         pageOverlaysBuilder: (context, pageRect, page) => <Widget>[
-          Positioned.fromRect(
-            rect: pageRect,
-            child: AnnotationLayer(page: page),
-          ),
+          AnnotationLayer(page: page),
         ],
       ),
     );
