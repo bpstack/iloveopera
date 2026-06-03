@@ -120,6 +120,19 @@ class SelectedAnnotationNotifier extends Notifier<String?> {
 final selectedAnnotationProvider =
     NotifierProvider<SelectedAnnotationNotifier, String?>(SelectedAnnotationNotifier.new);
 
+/// Id of the text annotation currently being edited inline, or `null`.
+/// Set when a text annotation is created or double-tapped; cleared on commit.
+class EditingAnnotationNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String? id) => state = id;
+  void clear() => state = null;
+}
+
+final editingAnnotationProvider =
+    NotifierProvider<EditingAnnotationNotifier, String?>(EditingAnnotationNotifier.new);
+
 /// Reactive list of all annotations in the open document.
 class AnnotationsNotifier extends Notifier<List<Annotation>> {
   @override

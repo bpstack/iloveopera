@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pdfrx/pdfrx.dart';
 
+import '../../../annotation/presentation/providers/annotation_providers.dart';
 import '../../../annotation/presentation/widgets/annotation_layer.dart';
 import '../../data/datasources/pdfrx_data_source.dart';
 import '../providers/pdf_session_provider.dart';
@@ -71,11 +72,18 @@ class _PdfViewerWidgetState extends ConsumerState<PdfViewerWidget> {
     final hasSession = ref.watch(pdfSessionProvider) != null;
     if (!hasSession) return const SizedBox.shrink();
 
+    // In "select" mode the user drags annotations, so the viewer's own pan
+    // gesture is disabled to avoid fighting the drag (scroll wheel/scrollbar
+    // still work). In add modes panning stays on.
+    final tool = ref.watch(annotationToolProvider);
+    final panEnabled = tool != AnnotationTool.select;
+
     return PdfViewer(
       PdfDocumentRefDirect(document),
       controller: _controller,
       params: PdfViewerParams(
         backgroundColor: Colors.transparent,
+        panEnabled: panEnabled,
         pageDropShadow: const BoxShadow(
           color: Colors.black26,
           blurRadius: 6,
