@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../annotation/presentation/providers/annotation_providers.dart';
-import '../../../annotation/presentation/widgets/font_picker.dart';
+import '../../../annotation/presentation/widgets/properties_panel.dart';
 import '../../../annotation/presentation/widgets/tool_panel.dart';
 import '../../../export/presentation/providers/export_providers.dart';
 import '../../../project/presentation/providers/project_providers.dart';
@@ -105,7 +105,6 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
   Widget build(BuildContext context) {
     final session = ref.watch(pdfSessionProvider);
     final hasDocument = session != null;
-    final tool = ref.watch(annotationToolProvider);
     final exportState = ref.watch(exportProvider);
     final isExporting = exportState.isLoading;
 
@@ -178,56 +177,26 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
           ),
         ],
       ),
-      body: Row(
-        children: [
-          if (hasDocument) const ThumbnailRail(),
-          if (hasDocument) const ToolPanel(),
-          if (hasDocument)
-            _StyleBar(
-              isTextTool: tool == AnnotationTool.addText,
-              isRectTool: tool == AnnotationTool.addRect,
-            ),
-          if (hasDocument) const VerticalDivider(width: 1),
-          Expanded(
-            child: hasDocument
-                ? const PdfViewerWidget()
-                : _EmptyState(onOpen: _openPdf, busy: _opening),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StyleBar extends ConsumerWidget {
-  const _StyleBar({required this.isTextTool, required this.isRectTool});
-
-  final bool isTextTool;
-  final bool isRectTool;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (!isTextTool && !isRectTool) return const SizedBox.shrink();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      color: Theme.of(context).colorScheme.surface,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          if (isTextTool) ...const <Widget>[
-            FontPicker(),
-            SizedBox(width: 4),
-            FontSizeField(),
-            SizedBox(width: 8),
-            Text('Color:'),
-            SizedBox(width: 4),
-            ColorSwatchButton(isText: true),
-          ] else ...const <Widget>[
-            Text('Color:'),
-            SizedBox(width: 4),
-            ColorSwatchButton(isText: false),
-          ],
-        ],
+      // Responsive layout: on narrow screens (≤700 dp) the PropertiesPanel
+      // is hidden (mobile bottom-sheet is deferred to Fase 6+).
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth > 700;
+          return Row(
+            children: [
+              if (hasDocument) const ThumbnailRail(),
+              if (hasDocument) const ToolPanel(),
+              if (hasDocument) const VerticalDivider(width: 1),
+              Expanded(
+                child: hasDocument
+                    ? const PdfViewerWidget()
+                    : _EmptyState(onOpen: _openPdf, busy: _opening),
+              ),
+              if (hasDocument && isWide) const VerticalDivider(width: 1),
+              if (hasDocument && isWide) const PropertiesPanel(),
+            ],
+          );
+        },
       ),
     );
   }

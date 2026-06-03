@@ -527,16 +527,14 @@ Verificado contra la documentación de pub.dev (2026-06-03):
 - [ ] Instrucciones de build Windows (incl. Modo Desarrollador — R3)
 - [ ] Instrucciones de build Linux (Native Assets / pdfium — R2)
 - [ ] Rendimiento con PDFs grandes (lazy render, caché de páginas)
-- [ ] Pulido de UI: barra superior, herramientas, responsive móvil/escritorio
-- [ ] **Rediseño del toolbar y panel de propiedades** (estandarizar, look pro):
-      - Toolbar vertical de ICONOS a la izquierda (select, texto, tipp-ex, y los
-        de Fase 3: dibujo, resaltado). Compacto, agrupado.
-      - **Panel de propiedades contextual a la DERECHA** que muestra solo lo
-        relevante a la herramienta/anotación activa (fuente: familia/tamaño/color;
-        rect: color/opacidad). NO estirar controles a lo largo de la barra
-        superior (feedback: queda pobre y desperdicia espacio).
-      - Responsive: en móvil el panel de propiedades pasa a hoja inferior / bottom
-        sheet en vez de columna lateral.
+- [x] **Rediseño del toolbar y panel de propiedades** (estandarizado):
+      - [x] Toolbar vertical de iconos compacto y agrupado (izquierda)
+      - [x] Panel de propiedades contextual a la DERECHA (fuente/tamaño/color
+            para texto; color/opacidad para rect/resaltado; color/grosor para trazo;
+            edición en vivo de la anotación seleccionada)
+      - [x] Layout responsive: panel visible en pantallas > 700 dp;
+            en pantallas estrechas el panel se oculta (bottom-sheet pendiente)
+- [ ] Responsive móvil: bottom sheet para el panel de propiedades (< 700 dp)
 - **DoD:** binarios funcionando en las 3 plataformas, fluido con PDFs grandes,
   UI con toolbar + panel de propiedades estandarizados.
 
