@@ -37,6 +37,9 @@ dependencies:
   flutter_riverpod: ^3.3.1
   pdfrx: ^2.4.3
   file_selector: ^1.1.0
+  freezed_annotation: ^3.1.0
+  json_annotation: ^4.12.0
+  uuid: ^4.5.3
 
 dev_dependencies:
   flutter_test:
@@ -48,6 +51,9 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  freezed: ^3.2.5
+  build_runner: ^2.15.0
+  json_serializable: ^6.14.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -59,6 +65,26 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  # Curated font set (ROADMAP §2.5). Each family ships with Regular
+  # only for Fase 2; more weights can be added without changing the
+  # public API. Family names match the ones exposed by FontRegistry.
+  fonts:
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto-Regular.ttf
+    - family: Open Sans
+      fonts:
+        - asset: assets/fonts/OpenSans-Regular.ttf
+    - family: Lato
+      fonts:
+        - asset: assets/fonts/Lato-Regular.ttf
+    - family: Merriweather
+      fonts:
+        - asset: assets/fonts/Merriweather-Regular.ttf
+    - family: Source Code Pro
+      fonts:
+        - asset: assets/fonts/SourceCodePro-Regular.ttf
 
   # To add assets to your application, add an assets section, like this:
   # assets:
