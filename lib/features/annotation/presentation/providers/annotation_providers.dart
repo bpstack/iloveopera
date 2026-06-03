@@ -245,6 +245,9 @@ class AnnotationsNotifier extends Notifier<List<Annotation>> {
     _refresh();
   }
 
+  /// Sync state from the store. Call after [AnnotationStore.loadFromJson].
+  void restoreFromStore() => _refresh();
+
   /// Drop every annotation. Called when a new document is opened.
   void clearAll() {
     ref.read(annotationStoreProvider).clear();
