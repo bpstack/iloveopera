@@ -33,6 +33,9 @@ class _AnnotationLayerState extends ConsumerState<AnnotationLayer> {
   String? _resizingId;
   double _resizeDx = 0;
   double _resizeDy = 0;
+  // Pre-resize base (PDF points) captured on pan-start — avoids double-counting delta.
+  double _resizeBaseW = 0;
+  double _resizeBaseH = 0;
 
   // One GlobalKey per annotation: lets us read the actual rendered size
   // (from the previous frame) to position the resize handle correctly even
@@ -48,29 +51,39 @@ class _AnnotationLayerState extends ConsumerState<AnnotationLayer> {
     return rb?.hasSize == true ? rb!.size : null;
   }
 
-  void _onResizeUpdate(String id, double dx, double dy) {
+  void _onResizeStart(String id, double scale) {
+    final a = ref.read(annotationsProvider).where((a) => a.id == id).firstOrNull;
+    if (a == null) return;
+    final rendered = _renderedSize(id);
+    // Capture the base dimensions BEFORE any delta is applied.
+    final baseW = a.rect.width > 0
+        ? a.rect.width
+        : (rendered != null ? rendered.width / scale : 80.0);
+    final baseH = a.rect.height > 0
+        ? a.rect.height
+        : (rendered != null ? rendered.height / scale : 20.0);
     setState(() {
       _resizingId = id;
-      _resizeDx += dx;
-      _resizeDy += dy;
+      _resizeDx = 0;
+      _resizeDy = 0;
+      _resizeBaseW = baseW;
+      _resizeBaseH = baseH;
     });
+  }
+
+  void _onResizeUpdate(String id, double dx, double dy) {
+    setState(() { _resizeDx += dx; _resizeDy += dy; });
   }
 
   void _onResizeEnd(String id, double scale) {
     final a = ref.read(annotationsProvider).where((a) => a.id == id).firstOrNull;
     if (a != null) {
-      final r = a.rect;
-      final rendered = _renderedSize(id);
-      // Base from stored rect; fall back to rendered size for auto-size text.
-      final baseW = r.width > 0 ? r.width : (rendered != null ? rendered.width / scale : 80.0);
-      final baseH = r.height > 0 ? r.height : (rendered != null ? rendered.height / scale : 20.0);
-      final newW = (baseW + _resizeDx / scale).clamp(20.0, double.infinity);
-      // Text height stays 0 (auto-height); rect/highlight get explicit height.
+      final newW = (_resizeBaseW + _resizeDx / scale).clamp(20.0, double.infinity);
       final newH = a is TextAnnotation
           ? 0.0
-          : (baseH + _resizeDy / scale).clamp(10.0, double.infinity);
+          : (_resizeBaseH + _resizeDy / scale).clamp(10.0, double.infinity);
       ref.read(annotationsProvider.notifier).moveLocal(
-            id, r.copyWith(width: newW, height: newH));
+            id, a.rect.copyWith(width: newW, height: newH));
     }
     setState(() { _resizingId = null; _resizeDx = 0; _resizeDy = 0; });
   }
@@ -150,20 +163,13 @@ class _AnnotationLayerState extends ConsumerState<AnnotationLayer> {
     double effHpx; // effective height in screen pixels
 
     if (isResizing) {
-      // During an active drag: base is either the stored rect or the last
-      // rendered size; add the live delta.
-      final baseWpx = a.rect.width > 0
-          ? a.rect.width * scale
-          : (rendered?.width ?? 80.0);
-      final baseHpx = a.rect.height > 0
-          ? a.rect.height * scale
-          : (rendered?.height ?? 20.0);
-      effWpx = (baseWpx + _resizeDx).clamp(20.0, double.infinity);
+      // Use the captured base (PDF points) + live delta → convert to pixels.
+      effWpx = (_resizeBaseW * scale + _resizeDx).clamp(20.0, double.infinity);
       effHpx = a is TextAnnotation
-          ? (rendered?.height ?? baseHpx) // text height always auto
-          : (baseHpx + _resizeDy).clamp(10.0, double.infinity);
+          ? (rendered?.height ?? _resizeBaseH * scale) // text height stays auto
+          : (_resizeBaseH * scale + _resizeDy).clamp(10.0, double.infinity);
     } else {
-      // Not resizing: use rendered size if available, else rect.
+      // Use actual rendered size when available (even for auto-size text).
       effWpx = rendered?.width ?? (a.rect.width > 0 ? a.rect.width * scale : 80.0);
       effHpx = rendered?.height ?? (a.rect.height > 0 ? a.rect.height * scale : 20.0);
     }
@@ -177,6 +183,7 @@ class _AnnotationLayerState extends ConsumerState<AnnotationLayer> {
       top: top,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
+        onPanStart: (_) => _onResizeStart(a.id, scale),
         onPanUpdate: (d) => _onResizeUpdate(a.id, d.delta.dx, d.delta.dy),
         onPanEnd: (_) => _onResizeEnd(a.id, scale),
         child: Container(
@@ -200,17 +207,19 @@ class _AnnotationLayerState extends ConsumerState<AnnotationLayer> {
     double? displayH;
 
     if (a is TextAnnotation) {
-      // width: null (auto) until the user resizes. During resize use 120 pt base.
-      final baseW = a.rect.width > 0 ? a.rect.width : (isResizing ? 120.0 : null);
-      displayW = baseW != null
-          ? (baseW + (isResizing ? _resizeDx / scale : 0)).clamp(20.0, double.infinity)
-          : null;
-      displayH = null; // always auto-height for text
+      // width: null (auto-size) until user resizes.
+      // During active resize, use the captured base + live delta.
+      displayW = isResizing
+          ? (_resizeBaseW + _resizeDx / scale).clamp(20.0, double.infinity)
+          : (a.rect.width > 0 ? a.rect.width : null);
+      displayH = null; // text height always auto
     } else {
-      displayW = (a.rect.width + (isResizing ? _resizeDx / scale : 0))
-          .clamp(10.0, double.infinity);
-      displayH = (a.rect.height + (isResizing ? _resizeDy / scale : 0))
-          .clamp(10.0, double.infinity);
+      displayW = isResizing
+          ? (_resizeBaseW + _resizeDx / scale).clamp(10.0, double.infinity)
+          : a.rect.width;
+      displayH = isResizing
+          ? (_resizeBaseH + _resizeDy / scale).clamp(10.0, double.infinity)
+          : a.rect.height;
     }
 
     return Positioned(
