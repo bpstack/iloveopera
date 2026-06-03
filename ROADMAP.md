@@ -465,12 +465,12 @@ Verificado contra la documentación de pub.dev (2026-06-03):
 - **DoD:** app vacía con navegación y tema, compilando en las 3 plataformas.
 
 ### Fase 1 — Visor PDF
-- [ ] Abrir PDF desde el sistema de archivos (file_selector)
-- [ ] Acceso a archivos en Android (Storage Access Framework / permisos) — ver R13
-- [ ] Render multipágina con pdfrx
-- [ ] Navegación entre páginas
-- [ ] Zoom in / out
-- [ ] Barra lateral opcional de miniaturas
+- [x] Abrir PDF desde el sistema de archivos (file_selector)
+- [x] Acceso a archivos en Android (Storage Access Framework / permisos) — ver R13
+- [x] Render multipágina con pdfrx
+- [x] Navegación entre páginas
+- [x] Zoom in / out
+- [x] Barra lateral opcional de miniaturas
 - **DoD:** abrir un PDF real y navegarlo con zoom en desktop y Android.
 
 ### Fase 2 — Capa de anotación: texto y "tipp-ex"
