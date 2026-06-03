@@ -35,42 +35,80 @@ class AnnotationLayer extends ConsumerWidget {
         final double scale =
             constraints.maxWidth <= 0 ? 1.0 : constraints.maxWidth / pageWidth;
 
-        return Stack(
-          clipBehavior: Clip.none,
-          children: <Widget>[
-            // Background tap handler for point-placement tools
-            if (tool == AnnotationTool.addText ||
-                tool == AnnotationTool.addRect ||
-                tool == AnnotationTool.addHighlight)
-              Positioned.fill(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTapUp: (details) =>
-                      _onBackgroundTap(context, ref, details.localPosition, scale),
-                ),
-              ),
+        final isAddMode = tool == AnnotationTool.addText ||
+            tool == AnnotationTool.addRect ||
+            tool == AnnotationTool.addHighlight ||
+            tool == AnnotationTool.addStroke;
 
-            // Existing annotations
-            for (final a in annotations)
-              Positioned(
-                left: a.rect.x * scale,
-                top: a.rect.y * scale,
-                width: a.rect.width * scale,
-                height: a.rect.height * scale,
-                child: _AnnotationWidget(
-                  key: ValueKey(a.id),
-                  annotation: a,
-                  scale: scale,
-                  isSelected: a.id == selectedId,
-                ),
-              ),
+        // Cursor hint (desktop only): changes when a placement tool is active.
+        final cursor = switch (tool) {
+          AnnotationTool.addText => SystemMouseCursors.text,
+          AnnotationTool.addStroke => SystemMouseCursors.precise,
+          AnnotationTool.addRect ||
+          AnnotationTool.addHighlight =>
+            SystemMouseCursors.cell,
+          _ => MouseCursor.defer,
+        };
 
-            // Live stroke drawing layer — on top of everything
-            if (tool == AnnotationTool.addStroke)
-              Positioned.fill(
-                child: _StrokeDrawingLayer(page: page, scale: scale),
-              ),
-          ],
+        return MouseRegion(
+          cursor: cursor,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: <Widget>[
+              // Subtle page tint + opaque tap capture for placement tools.
+              // HitTestBehavior.opaque is critical: it blocks pdfrx's parent
+              // gesture recognizers from competing in the gesture arena.
+              if (tool == AnnotationTool.addText ||
+                  tool == AnnotationTool.addRect ||
+                  tool == AnnotationTool.addHighlight)
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTapUp: (details) =>
+                        _onBackgroundTap(context, ref, details.localPosition, scale),
+                    child: isAddMode
+                        ? DecoratedBox(
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: Colors.indigoAccent.withValues(alpha: 0.5),
+                                width: 2,
+                              ),
+                            ),
+                          )
+                        : const SizedBox.expand(),
+                  ),
+                ),
+
+              // Existing annotations
+              for (final a in annotations)
+                Positioned(
+                  left: a.rect.x * scale,
+                  top: a.rect.y * scale,
+                  width: a.rect.width * scale,
+                  height: a.rect.height * scale,
+                  child: _AnnotationWidget(
+                    key: ValueKey(a.id),
+                    annotation: a,
+                    scale: scale,
+                    isSelected: a.id == selectedId,
+                  ),
+                ),
+
+              // Live stroke drawing layer — on top of everything
+              if (tool == AnnotationTool.addStroke)
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: Colors.indigoAccent.withValues(alpha: 0.5),
+                        width: 2,
+                      ),
+                    ),
+                    child: _StrokeDrawingLayer(page: page, scale: scale),
+                  ),
+                ),
+            ],
+          ),
         );
       },
     );
