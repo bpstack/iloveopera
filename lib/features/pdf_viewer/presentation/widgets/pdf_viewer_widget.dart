@@ -73,12 +73,11 @@ class _PdfViewerWidgetState extends ConsumerState<PdfViewerWidget> {
     final hasSession = ref.watch(pdfSessionProvider) != null;
     if (!hasSession) return const SizedBox.shrink();
 
-    // Disable pdfrx's own pan gesture when the user is dragging annotations
-    // (select mode) or drawing freehand strokes — both compete with pdfrx pan.
-    // Scroll wheel and scrollbars still work regardless of panEnabled.
-    final tool = ref.watch(annotationToolProvider);
-    final panEnabled =
-        tool != AnnotationTool.select && tool != AnnotationTool.addStroke;
+    // panEnabled=false for all tools: when true, pdfrx's gesture recognizer
+    // wins the arena and swallows taps before they reach our overlay.
+    // Scroll wheel and scrollbars still work on desktop (Fase 6 covers mobile).
+    ref.watch(annotationToolProvider); // keep subscription for onKey rebuild
+    const panEnabled = false;
 
     return PdfViewer(
       PdfDocumentRefDirect(document),
