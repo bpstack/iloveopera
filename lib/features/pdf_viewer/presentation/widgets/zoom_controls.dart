@@ -5,43 +5,29 @@ import 'package:pdfrx/pdfrx.dart';
 import '../providers/viewer_controller_provider.dart';
 import '../providers/viewer_state_providers.dart';
 
-/// Zoom controls driven by an explicit user factor relative to fit.
+/// Zoom controls driven by pdfrx's REAL absolute scale.
 ///
-/// 100% == fit-to-page ([zoomFactorProvider] == 1.0). The displayed percentage
-/// is the factor itself, NOT a ratio recomputed from pdfrx's absolute scale —
-/// recomputing `calcMatrixForFit` every build made the label stick (fit and
-/// current zoom shrank together). Driving the label from the factor keeps it
-/// correct on the way down and stable across window resizes.
+/// Both the displayed percentage and the +/- targets are derived from
+/// `controller.currentZoom` (the actual on-screen scale), so the number can
+/// never desync from the image. 100% == actual size (1:1). The "fit" button
+/// snaps to fit-to-page.
 ///
-/// Note: the label reflects button-driven zoom. Pinch/trackpad gestures change
-/// the actual scale without updating this factor (acceptable for desktop v1).
+/// Earlier attempts derived the % from a fit baseline (`calcMatrixForFit`),
+/// but that scale is not stable, so the label drifted from reality. Reading the
+/// live scale fixes that.
 class ZoomControls extends ConsumerWidget {
   const ZoomControls({super.key});
 
   static const double _step = 1.25;
-  static const double _minFactor = 0.25; // 25% of fit
-  static const double _maxFactor = 8.0; // 800% of fit
+  static const double _minZoom = 0.1; // 10%
+  static const double _maxZoom = 10.0; // 1000%
 
-  double? _fitScale(PdfViewerController controller, int page) {
-    final m = controller.calcMatrixForFit(pageNumber: page < 1 ? 1 : page);
-    return m?.getMaxScaleOnAxis();
-  }
-
-  Future<void> _setFactor(
-    WidgetRef ref,
-    PdfViewerController controller,
-    int page,
-    double rawFactor,
-  ) async {
-    final factor = rawFactor.clamp(_minFactor, _maxFactor);
-    ref.read(zoomFactorProvider.notifier).set(factor);
-    final fit = _fitScale(controller, page);
-    if (fit == null || fit <= 0) return;
-    // Instant (no animation): rapid clicks must not queue 200ms tweens, or the
-    // last presses appear to "react late" while earlier ones finish animating.
+  Future<void> _zoomTo(PdfViewerController controller, double target) async {
+    final clamped = target.clamp(_minZoom, _maxZoom);
+    // Instant (no animation): rapid clicks must not queue 200ms tweens.
     await controller.setZoom(
       controller.centerPosition,
-      fit * factor,
+      clamped,
       duration: Duration.zero,
     );
   }
@@ -49,9 +35,9 @@ class ZoomControls extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.watch(viewerControllerProvider);
-    final factor = ref.watch(zoomFactorProvider);
+    final zoom = ref.watch(currentZoomProvider); // live absolute scale
     final page = ref.watch(currentPageProvider);
-    final ready = controller != null && ref.watch(currentZoomProvider) > 0;
+    final ready = controller != null && zoom > 0;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -61,12 +47,12 @@ class ZoomControls extends ConsumerWidget {
           icon: const Icon(Icons.zoom_out),
           onPressed: !ready
               ? null
-              : () => _setFactor(ref, controller, page, factor / _step),
+              : () => _zoomTo(controller, controller.currentZoom / _step),
         ),
         SizedBox(
           width: 56,
           child: Text(
-            ready ? '${(factor * 100).round()} %' : '—',
+            ready ? '${(zoom * 100).round()} %' : '—',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall,
           ),
@@ -76,14 +62,17 @@ class ZoomControls extends ConsumerWidget {
           icon: const Icon(Icons.zoom_in),
           onPressed: !ready
               ? null
-              : () => _setFactor(ref, controller, page, factor * _step),
+              : () => _zoomTo(controller, controller.currentZoom * _step),
         ),
         IconButton(
           tooltip: 'Ajustar a la página',
           icon: const Icon(Icons.fit_screen),
           onPressed: !ready
               ? null
-              : () => _setFactor(ref, controller, page, 1.0),
+              : () => controller.goTo(
+                  controller.calcMatrixForFit(pageNumber: page < 1 ? 1 : page),
+                  duration: Duration.zero,
+                ),
         ),
       ],
     );
