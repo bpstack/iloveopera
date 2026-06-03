@@ -99,9 +99,15 @@ class _AnnotationLayerState extends ConsumerState<AnnotationLayer> {
                   ),
                 ),
 
-              // Existing annotations
-              for (final a in annotations)
+              // Existing annotations + resize handles (separate Positioned so
+              // they never compete with the move GestureDetector).
+              for (final a in annotations) ...[
                 _buildPositioned(a, scale, selectedId),
+                if (a.id == selectedId &&
+                    tool == AnnotationTool.select &&
+                    a is! StrokeAnnotation)
+                  _buildResizeHandle(a, scale),
+              ],
 
               // Live stroke drawing layer
               if (tool == AnnotationTool.addStroke)
@@ -112,6 +118,51 @@ class _AnnotationLayerState extends ConsumerState<AnnotationLayer> {
           ),
         );
       },
+    );
+  }
+
+  /// Resize handle as a standalone [Positioned] in the outer Stack.
+  /// Keeping it outside [_AnnotationWidget] means it never competes with
+  /// the move [GestureDetector] in the gesture arena.
+  Widget _buildResizeHandle(Annotation a, double scale) {
+    final isResizing = _resizingId == a.id;
+
+    // Compute effective width/height in PDF points for handle placement.
+    final double effW;
+    final double effH;
+    if (a is TextAnnotation) {
+      // For auto-size text (width==0) use 120 pt as the base.
+      final baseW = a.rect.width > 0 ? a.rect.width : 120.0;
+      effW = (baseW + (isResizing ? _resizeDx / scale : 0)).clamp(20.0, double.infinity);
+      effH = a.rect.height > 0
+          ? (a.rect.height + (isResizing ? _resizeDy / scale : 0)).clamp(10.0, double.infinity)
+          : 20.0; // approximate for auto-height text
+    } else {
+      effW = (a.rect.width + (isResizing ? _resizeDx / scale : 0)).clamp(10.0, double.infinity);
+      effH = (a.rect.height + (isResizing ? _resizeDy / scale : 0)).clamp(10.0, double.infinity);
+    }
+
+    // Place the 14×14 handle centred on the bottom-right corner.
+    final left = (a.rect.x * scale + effW * scale - 7).clamp(0.0, double.infinity);
+    final top  = (a.rect.y * scale + effH * scale - 7).clamp(0.0, double.infinity);
+
+    return Positioned(
+      left: left,
+      top: top,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onPanUpdate: (d) => _onResizeUpdate(a.id, d.delta.dx, d.delta.dy),
+        onPanEnd: (_) => _onResizeEnd(a.id, scale),
+        child: Container(
+          width: 14,
+          height: 14,
+          decoration: BoxDecoration(
+            color: Colors.indigoAccent,
+            border: Border.all(color: Colors.white, width: 1.5),
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ),
+      ),
     );
   }
 
@@ -385,6 +436,7 @@ class _AnnotationWidget extends ConsumerStatefulWidget {
   final bool isSelected;
   /// True when this TextAnnotation has no explicit width and should auto-size.
   final bool autoSizeText;
+  // Kept in signature for potential future use; currently handled in parent.
   final void Function(String id, double dx, double dy) onResizeUpdate;
   final void Function(String id, double scale) onResizeEnd;
 
@@ -454,63 +506,30 @@ class _AnnotationWidgetState extends ConsumerState<_AnnotationWidget> {
         ),
     };
 
-    // Resize handle — shown for text/rect/highlight when selected in select mode.
-    final bool showResize = widget.isSelected &&
-        canDrag &&
-        a is! StrokeAnnotation;
-
     return Transform.translate(
       offset: _drag,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          // Main annotation: handles move gesture
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => ref.read(selectedAnnotationProvider.notifier).set(a.id),
-            onDoubleTap: a is TextAnnotation ? _editText : null,
-            onPanStart: canDrag
-                ? (_) => ref.read(selectedAnnotationProvider.notifier).set(a.id)
-                : null,
-            onPanUpdate: canDrag ? (d) => setState(() => _drag += d.delta) : null,
-            onPanEnd: canDrag
-                ? (_) {
-                    final r = a.rect;
-                    ref.read(annotationsProvider.notifier).moveLocal(
-                          a.id,
-                          r.copyWith(
-                            x: r.x + _drag.dx / scale,
-                            y: r.y + _drag.dy / scale,
-                          ),
-                        );
-                    setState(() => _drag = Offset.zero);
-                  }
-                : null,
-            child: visual,
-          ),
-
-          // Resize handle at bottom-right corner
-          if (showResize)
-            Positioned(
-              right: -6,
-              bottom: -6,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onPanUpdate: (d) =>
-                    widget.onResizeUpdate(a.id, d.delta.dx, d.delta.dy),
-                onPanEnd: (_) => widget.onResizeEnd(a.id, scale),
-                child: Container(
-                  width: 14,
-                  height: 14,
-                  decoration: BoxDecoration(
-                    color: Colors.indigoAccent,
-                    border: Border.all(color: Colors.white, width: 1.5),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-              ),
-            ),
-        ],
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => ref.read(selectedAnnotationProvider.notifier).set(a.id),
+        onDoubleTap: a is TextAnnotation ? _editText : null,
+        onPanStart: canDrag
+            ? (_) => ref.read(selectedAnnotationProvider.notifier).set(a.id)
+            : null,
+        onPanUpdate: canDrag ? (d) => setState(() => _drag += d.delta) : null,
+        onPanEnd: canDrag
+            ? (_) {
+                final r = a.rect;
+                ref.read(annotationsProvider.notifier).moveLocal(
+                      a.id,
+                      r.copyWith(
+                        x: r.x + _drag.dx / scale,
+                        y: r.y + _drag.dy / scale,
+                      ),
+                    );
+                setState(() => _drag = Offset.zero);
+              }
+            : null,
+        child: visual,
       ),
     );
   }
