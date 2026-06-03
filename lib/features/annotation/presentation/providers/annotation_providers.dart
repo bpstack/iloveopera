@@ -265,5 +265,17 @@ final annotationsForPageProvider = Provider.family<List<Annotation>, int>((ref, 
   return ref.watch(annotationsProvider).where((a) => a.pageNumber == page).toList();
 });
 
+/// Reactive undo/redo availability.
+///
+/// Watches [annotationsProvider] so the toolbar rebuilds whenever the
+/// annotation list (and therefore the undo/redo stacks) change.
+/// Direct access to [annotationStoreProvider] is NOT reactive on its own
+/// because [AnnotationStore] is a plain class, not a Notifier.
+final undoRedoProvider = Provider<({bool canUndo, bool canRedo})>((ref) {
+  ref.watch(annotationsProvider); // establishes reactive dependency
+  final store = ref.read(annotationStoreProvider);
+  return (canUndo: store.canUndo, canRedo: store.canRedo);
+});
+
 /// Font catalog (ROADMAP §2.5) exposed to the UI.
 final curadoFontsProvider = Provider<List<FontFamily>>((ref) => FontRegistry.curado);

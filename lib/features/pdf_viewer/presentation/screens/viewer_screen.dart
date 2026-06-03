@@ -177,8 +177,9 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
           ),
         ],
       ),
-      // Responsive layout: on narrow screens (≤700 dp) the PropertiesPanel
-      // is hidden (mobile bottom-sheet is deferred to Fase 6+).
+      // Responsive layout:
+      //   ≥ 700 dp → side panel on the right.
+      //   < 700 dp → FAB (tune icon) opens a modal bottom sheet.
       body: LayoutBuilder(
         builder: (context, constraints) {
           final isWide = constraints.maxWidth > 700;
@@ -198,6 +199,48 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
           );
         },
       ),
+      floatingActionButton: hasDocument
+          ? _PropertiesFab(isVisible: MediaQuery.sizeOf(context).width <= 700)
+          : null,
+    );
+  }
+}
+
+/// FAB shown on narrow screens (≤ 700 dp) that opens [PropertiesPanel]
+/// as a modal bottom sheet.
+class _PropertiesFab extends ConsumerWidget {
+  const _PropertiesFab({required this.isVisible});
+  final bool isVisible;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!isVisible) return const SizedBox.shrink();
+    final tool = ref.watch(annotationToolProvider);
+    final selectedId = ref.watch(selectedAnnotationProvider);
+    // Only show FAB when there are properties to display.
+    final hasProps = tool != AnnotationTool.select || selectedId != null;
+    if (!hasProps) return const SizedBox.shrink();
+    return FloatingActionButton.small(
+      tooltip: 'Propiedades',
+      onPressed: () => showModalBottomSheet<void>(
+        context: context,
+        useRootNavigator: true,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        builder: (_) => DraggableScrollableSheet(
+          initialChildSize: 0.5,
+          minChildSize: 0.3,
+          maxChildSize: 0.85,
+          expand: false,
+          builder: (ctx, scroll) => SingleChildScrollView(
+            controller: scroll,
+            child: const PropertiesPanel(fillWidth: true),
+          ),
+        ),
+      ),
+      child: const Icon(Icons.tune),
     );
   }
 }

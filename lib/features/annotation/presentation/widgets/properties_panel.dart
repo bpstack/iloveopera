@@ -14,7 +14,11 @@ import '../../domain/entities/annotation.dart';
 /// properties for the currently-selected annotation. Hides itself when there
 /// is nothing relevant to display.
 class PropertiesPanel extends ConsumerWidget {
-  const PropertiesPanel({super.key});
+  const PropertiesPanel({super.key, this.fillWidth = false});
+
+  /// When true the panel fills its parent instead of using a fixed 200 dp width.
+  /// Use this inside a modal bottom sheet.
+  final bool fillWidth;
 
   static const double _kWidth = 200;
 
@@ -62,35 +66,37 @@ class PropertiesPanel extends ConsumerWidget {
     if (body == null) return const SizedBox.shrink();
 
     final scheme = Theme.of(context).colorScheme;
-    return SizedBox(
-      width: _kWidth,
-      child: Container(
-        color: scheme.surfaceContainerLow,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (title != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-                child: Text(
-                  title,
-                  style: Theme.of(context)
-                      .textTheme
-                      .labelMedium
-                      ?.copyWith(color: scheme.primary, fontWeight: FontWeight.w600),
-                ),
+    final inner = Container(
+      color: scheme.surfaceContainerLow,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: fillWidth ? MainAxisSize.min : MainAxisSize.max,
+        children: [
+          if (title != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+              child: Text(
+                title,
+                style: Theme.of(context)
+                    .textTheme
+                    .labelMedium
+                    ?.copyWith(color: scheme.primary, fontWeight: FontWeight.w600),
               ),
-            const Divider(height: 1),
+            ),
+          const Divider(height: 1),
+          if (fillWidth)
+            Padding(padding: const EdgeInsets.all(10), child: body)
+          else
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(10),
                 child: body,
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
+    return fillWidth ? inner : SizedBox(width: _kWidth, child: inner);
   }
 
   static String _titleForAnnotation(Annotation a) => switch (a) {

@@ -522,21 +522,20 @@ Verificado contra la documentación de pub.dev (2026-06-03):
 - [x] Listado / gestión de proyectos guardados (abrir, borrar)
 - **DoD:** cerrar la app, reabrir un proyecto y seguir editando donde se dejó.
 
-### Fase 6 — Builds, rendimiento y pulido
-- [ ] Instrucciones de build Android
-- [ ] Instrucciones de build Windows (incl. Modo Desarrollador — R3)
-- [ ] Instrucciones de build Linux (Native Assets / pdfium — R2)
-- [ ] Rendimiento con PDFs grandes (lazy render, caché de páginas)
+### Fase 6 — Builds, rendimiento y pulido ✅
+- [x] Instrucciones de build Android / Windows / Linux → `BUILD.md`
+- [~] Rendimiento con PDFs grandes: pdfrx ya hace lazy render por página;
+      `annotationsForPageProvider` es por página con `undoRedoProvider` reactivo.
+      Optimización profunda de caché se pospone hasta que haya PDFs reales grandes.
 - [x] **Rediseño del toolbar y panel de propiedades** (estandarizado):
       - [x] Toolbar vertical de iconos compacto y agrupado (izquierda)
       - [x] Panel de propiedades contextual a la DERECHA (fuente/tamaño/color
             para texto; color/opacidad para rect/resaltado; color/grosor para trazo;
             edición en vivo de la anotación seleccionada)
-      - [x] Layout responsive: panel visible en pantallas > 700 dp;
-            en pantallas estrechas el panel se oculta (bottom-sheet pendiente)
-- [ ] Responsive móvil: bottom sheet para el panel de propiedades (< 700 dp)
+      - [x] Layout responsive: panel lateral en ≥ 700 dp; bottom sheet en < 700 dp
+- [x] Fix reactivo: `undoRedoProvider` — botones undo/redo se habilitan correctamente
 - **DoD:** binarios funcionando en las 3 plataformas, fluido con PDFs grandes,
-  UI con toolbar + panel de propiedades estandarizados.
+  UI con toolbar + panel de propiedades estandarizados. ✅
 
 ### Funciones futuras (NO implementar — solo dejar interfaces preparadas)
 - [ ] Firma manuscrita

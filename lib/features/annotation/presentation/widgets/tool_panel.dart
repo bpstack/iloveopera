@@ -12,7 +12,7 @@ class ToolPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tool = ref.watch(annotationToolProvider);
     final selectedId = ref.watch(selectedAnnotationProvider);
-    final store = ref.watch(annotationStoreProvider);
+    final undoRedo = ref.watch(undoRedoProvider);
     final scheme = Theme.of(context).colorScheme;
 
     Widget btn(
@@ -97,14 +97,14 @@ class ToolPanel extends ConsumerWidget {
           iconAction(
             icon: Icons.undo,
             tooltip: 'Deshacer  Ctrl+Z',
-            onPressed: store.canUndo
+            onPressed: undoRedo.canUndo
                 ? () => ref.read(annotationsProvider.notifier).undoAnnotations()
                 : null,
           ),
           iconAction(
             icon: Icons.redo,
             tooltip: 'Rehacer  Ctrl+Y',
-            onPressed: store.canRedo
+            onPressed: undoRedo.canRedo
                 ? () => ref.read(annotationsProvider.notifier).redoAnnotations()
                 : null,
           ),
