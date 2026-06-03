@@ -514,12 +514,12 @@ Verificado contra la documentación de pub.dev (2026-06-03):
 - [x] Verificar fidelidad de coordenadas/colores/tamaños en el PDF final
 - **DoD:** exportar un PDF nuevo con todas las anotaciones, original sin tocar.
 
-### Fase 5 — Persistencia de proyectos (guardar / reabrir sesión)
-- [ ] Al guardar proyecto: **copiar el PDF original** dentro del almacenamiento
+### Fase 5 — Persistencia de proyectos (guardar / reabrir sesión) ✅
+- [x] Al guardar proyecto: **copiar el PDF original** dentro del almacenamiento
       de la app + guardar anotaciones en JSON (ver R12). El original del usuario
       no se toca.
-- [ ] Reabrir un proyecto: cargar copia + anotaciones y restaurar la sesión
-- [ ] Listado / gestión de proyectos guardados (abrir, borrar)
+- [x] Reabrir un proyecto: cargar copia + anotaciones y restaurar la sesión
+- [x] Listado / gestión de proyectos guardados (abrir, borrar)
 - **DoD:** cerrar la app, reabrir un proyecto y seguir editando donde se dejó.
 
 ### Fase 6 — Builds, rendimiento y pulido

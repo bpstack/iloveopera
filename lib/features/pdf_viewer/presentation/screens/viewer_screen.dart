@@ -5,6 +5,8 @@ import '../../../annotation/presentation/providers/annotation_providers.dart';
 import '../../../annotation/presentation/widgets/font_picker.dart';
 import '../../../annotation/presentation/widgets/tool_panel.dart';
 import '../../../export/presentation/providers/export_providers.dart';
+import '../../../project/presentation/providers/project_providers.dart';
+import '../../../project/presentation/screens/projects_screen.dart';
 import '../../domain/entities/pdf_failure.dart';
 import '../providers/pdf_session_provider.dart';
 import '../providers/viewer_state_providers.dart';
@@ -22,6 +24,30 @@ class ViewerScreen extends ConsumerStatefulWidget {
 
 class _ViewerScreenState extends ConsumerState<ViewerScreen> {
   bool _opening = false;
+
+  Future<void> _saveProject() async {
+    try {
+      final project =
+          await ref.read(projectsProvider.notifier).saveCurrentSession();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Proyecto guardado: ${project.name}'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error al guardar: $e')));
+    }
+  }
+
+  void _openProjectsScreen() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const ProjectsScreen()),
+    );
+  }
 
   Future<void> _exportPdf() async {
     await ref.read(exportProvider.notifier).exportPdf();
@@ -93,7 +119,28 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
             ZoomControls(),
             const SizedBox(width: 8),
           ],
-          if (hasDocument)
+          if (hasDocument) ...[
+            IconButton(
+              tooltip: 'Proyectos guardados',
+              icon: const Icon(Icons.folder_special_outlined),
+              onPressed: _openProjectsScreen,
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor:
+                      Theme.of(context).colorScheme.tertiaryContainer,
+                  foregroundColor:
+                      Theme.of(context).colorScheme.onTertiaryContainer,
+                ),
+                onPressed: _saveProject,
+                icon: const Icon(Icons.save_outlined),
+                label: Text(session.projectId != null
+                    ? 'Actualizar proyecto'
+                    : 'Guardar proyecto'),
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: FilledButton.icon(
@@ -114,6 +161,7 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
                 label: const Text('Exportar PDF'),
               ),
             ),
+          ],
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: FilledButton.icon(

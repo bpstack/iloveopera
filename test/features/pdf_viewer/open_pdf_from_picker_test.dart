@@ -31,7 +31,7 @@ class _FakeRepository implements PdfRepository {
   bool openedFromBytes = false;
 
   @override
-  Future<Result<PdfSession>> openPdfFromPath(String path, {String? displayName}) async {
+  Future<Result<PdfSession>> openPdfFromPath(String path, {String? displayName, String? projectId}) async {
     openedFromPath = true;
     lastPath = path;
     lastDisplayName = displayName;
