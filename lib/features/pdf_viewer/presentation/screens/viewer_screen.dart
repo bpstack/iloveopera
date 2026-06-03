@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../annotation/presentation/providers/annotation_providers.dart';
+import '../../../annotation/presentation/widgets/font_picker.dart';
+import '../../../annotation/presentation/widgets/tool_panel.dart';
 import '../../domain/entities/pdf_failure.dart';
 import '../providers/pdf_session_provider.dart';
 import '../providers/viewer_state_providers.dart';
@@ -28,6 +31,10 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
       if (!mounted) return;
       result.when(
         success: (session) {
+          // Reset annotation state for the new document.
+          ref.read(annotationsProvider.notifier).clearAll();
+          ref.read(selectedAnnotationProvider.notifier).clear();
+          ref.read(annotationToolProvider.notifier).set(AnnotationTool.select);
           ref.read(pdfSessionProvider.notifier).set(session);
           ref.read(currentPageProvider.notifier).set(1);
           ref.read(currentZoomProvider.notifier).set(0);
@@ -54,6 +61,7 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
   Widget build(BuildContext context) {
     final session = ref.watch(pdfSessionProvider);
     final hasDocument = session != null;
+    final tool = ref.watch(annotationToolProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -84,12 +92,52 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
       body: Row(
         children: [
           if (hasDocument) const ThumbnailRail(),
-          const VerticalDivider(width: 1),
+          if (hasDocument) const ToolPanel(),
+          if (hasDocument)
+            _StyleBar(
+              isTextTool: tool == AnnotationTool.addText,
+              isRectTool: tool == AnnotationTool.addRect,
+            ),
+          if (hasDocument) const VerticalDivider(width: 1),
           Expanded(
             child: hasDocument
                 ? const PdfViewerWidget()
                 : _EmptyState(onOpen: _openPdf, busy: _opening),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StyleBar extends ConsumerWidget {
+  const _StyleBar({required this.isTextTool, required this.isRectTool});
+
+  final bool isTextTool;
+  final bool isRectTool;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!isTextTool && !isRectTool) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      color: Theme.of(context).colorScheme.surface,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          if (isTextTool) ...const <Widget>[
+            FontPicker(),
+            SizedBox(width: 4),
+            FontSizeField(),
+            SizedBox(width: 8),
+            Text('Color:'),
+            SizedBox(width: 4),
+            ColorSwatchButton(isText: true),
+          ] else ...const <Widget>[
+            Text('Color:'),
+            SizedBox(width: 4),
+            ColorSwatchButton(isText: false),
+          ],
         ],
       ),
     );

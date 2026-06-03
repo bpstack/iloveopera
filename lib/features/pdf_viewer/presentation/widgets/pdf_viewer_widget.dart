@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pdfrx/pdfrx.dart';
 
+import '../../../annotation/presentation/widgets/annotation_layer.dart';
 import '../../data/datasources/pdfrx_data_source.dart';
 import '../providers/pdf_session_provider.dart';
 import '../providers/viewer_controller_provider.dart';
@@ -73,14 +74,24 @@ class _PdfViewerWidgetState extends ConsumerState<PdfViewerWidget> {
     return PdfViewer(
       PdfDocumentRefDirect(document),
       controller: _controller,
-      params: const PdfViewerParams(
+      params: PdfViewerParams(
         backgroundColor: Colors.transparent,
-        pageDropShadow: BoxShadow(
+        pageDropShadow: const BoxShadow(
           color: Colors.black26,
           blurRadius: 6,
           spreadRadius: 1,
           offset: Offset(1, 2),
         ),
+        // Annotations are painted in page coordinates by pdfrx (R5):
+        // the builder is called for each visible page with the page's
+        // bounding rect on screen, and our AnnotationLayer handles the
+        // points-to-pixels mapping via a single scale factor.
+        pageOverlaysBuilder: (context, pageRect, page) => <Widget>[
+          Positioned.fromRect(
+            rect: pageRect,
+            child: AnnotationLayer(page: page),
+          ),
+        ],
       ),
     );
   }
