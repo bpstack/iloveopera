@@ -466,7 +466,8 @@ Verificado contra la documentación de pub.dev (2026-06-03):
 
 ### Fase 1 — Visor PDF
 - [x] Abrir PDF desde el sistema de archivos (file_selector)
-- [x] Acceso a archivos en Android (Storage Access Framework / permisos) — ver R13
+- [~] Acceso a archivos en Android — CÓDIGO completo (SAF → bytes, unit-tested);
+      validación en dispositivo real APLAZADA a Fase 6 (ver R13)
 - [x] Render multipágina con pdfrx
 - [x] Navegación entre páginas
 - [x] Zoom in / out
@@ -541,7 +542,7 @@ Verificado contra la documentación de pub.dev (2026-06-03):
 | R10 | **file_selector en Linux** puede depender de portales del SO (xdg-desktop-portal / zenity) | Bajo | Documentar requisito del sistema en instrucciones Linux. Probar en Fase 1. |
 | R11 | **Deriva del modelo ejecutor** (improvisa, salta fases, mete deps no permitidas) | Medio | Sección 8 (reglas) + checklist de fases + decisiones FIJAS. |
 | R12 | **Proyecto guardado referencia un original que el usuario mueve/borra** → se rompe al reabrir | Medio | Al guardar proyecto se **copia el PDF original** al almacenamiento de la app y se trabaja sobre esa copia. El original del usuario nunca se toca. Coste: duplica el archivo. **Decisión FIJA** (Fase 5). |
-| R13 | **Acceso a archivos en Android** (scoped storage / permisos / SAF) | Medio | Usar el flujo del Storage Access Framework vía `file_selector`. Validar lectura y escritura en Android en Fase 1. Documentar permisos mínimos en el manifest. |
+| R13 | **Acceso a archivos en Android** (scoped storage / permisos / SAF) | Medio | SAF vía `file_selector` → ruta vacía → `openPdfFromBytes`. **Implementado y unit-tested en Fase 1.** ⚠️ Validación en dispositivo real (pdfrx `openData` + flujo SAF) **pendiente para Fase 6** (requiere Android SDK, no instalado). Riesgo residual hasta entonces. |
 
 ---
 

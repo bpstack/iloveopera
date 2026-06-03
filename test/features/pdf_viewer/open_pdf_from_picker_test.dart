@@ -37,7 +37,7 @@ class _FakeRepository implements PdfRepository {
     lastDisplayName = displayName;
     return _sessionToReturn == null
         ? const Failure<PdfSession>(PdfInvalidFile('fake'))
-        : Success<PdfSession>(_sessionToReturn!);
+        : Success<PdfSession>(_sessionToReturn);
   }
 
   @override
@@ -47,7 +47,7 @@ class _FakeRepository implements PdfRepository {
     lastDisplayName = displayName;
     return _sessionToReturn == null
         ? const Failure<PdfSession>(PdfInvalidFile('fake'))
-        : Success<PdfSession>(_sessionToReturn!);
+        : Success<PdfSession>(_sessionToReturn);
   }
 
   @override
