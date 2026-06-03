@@ -12,7 +12,11 @@ abstract class PdfRepository {
   ///
   /// Use [openPdfFromBytes] when the file comes from a content URI (Android
   /// Storage Access Framework) or any source without a direct path.
-  Future<Result<PdfSession>> openPdfFromPath(String path, {String? displayName});
+  Future<Result<PdfSession>> openPdfFromPath(
+    String path, {
+    String? displayName,
+    String? projectId,
+  });
 
   /// Open a PDF from raw bytes (cross-platform; required for Android SAF).
   Future<Result<PdfSession>> openPdfFromBytes(Uint8List bytes, {required String displayName});

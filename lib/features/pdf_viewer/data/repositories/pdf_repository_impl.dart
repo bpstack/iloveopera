@@ -28,13 +28,19 @@ class PdfRepositoryImpl implements PdfRepository {
   Future<Result<PdfSession>> openPdfFromPath(
     String path, {
     String? displayName,
+    String? projectId,
   }) async {
     try {
       if (!File(path).existsSync()) {
         return Failure(PdfInvalidFile('No se encontró el archivo: $path'));
       }
       final doc = await _dataSource.openFromPath(path);
-      return Success(_buildSession(doc, displayName ?? _basename(path)));
+      return Success(_buildSession(
+        doc,
+        displayName ?? _basename(path),
+        sourcePath: path,
+        projectId: projectId,
+      ));
     } on Object catch (e) {
       return Failure(_mapError(e));
     }
@@ -72,7 +78,12 @@ class PdfRepositoryImpl implements PdfRepository {
     );
   }
 
-  PdfSession _buildSession(PdfDocument doc, String sourceName) {
+  PdfSession _buildSession(
+    PdfDocument doc,
+    String sourceName, {
+    String? sourcePath,
+    String? projectId,
+  }) {
     final pages = <PdfPageInfo>[];
     for (final p in doc.pages) {
       pages.add(PdfPageInfo(
@@ -85,6 +96,8 @@ class PdfRepositoryImpl implements PdfRepository {
       sourceName: sourceName,
       pageCount: doc.pages.length,
       pages: pages,
+      sourcePath: sourcePath,
+      projectId: projectId,
     );
   }
 
