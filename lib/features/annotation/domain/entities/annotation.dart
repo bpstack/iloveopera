@@ -1,15 +1,16 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import 'page_rect.dart';
+import 'pdf_point.dart';
 
 part 'annotation.freezed.dart';
 part 'annotation.g.dart';
 
-/// Sealed union of annotation types supported by the app.
+/// Sealed union of all annotation types.
 ///
-/// Fase 2 only ships [Annotation.text] and [Annotation.rect]; more variants
-/// will be added in later phases (Stroke, Highlight, etc.) following the
-/// same pattern.
+/// Variants: [TextAnnotation], [RectAnnotation] (Fase 2),
+/// [StrokeAnnotation], [HighlightAnnotation] (Fase 3).
+/// All coordinates are in PDF points relative to the page origin (R5).
 @freezed
 sealed class Annotation with _$Annotation {
   const Annotation._();
@@ -35,6 +36,27 @@ sealed class Annotation with _$Annotation {
     required int colorArgb,
     @Default(1.0) double opacity,
   }) = RectAnnotation;
+
+  /// Freehand stroke. [points] are in PDF points relative to the page origin.
+  /// [rect] is the bounding box (used for [Positioned] in the overlay).
+  /// [strokeWidth] is in PDF points; the painter scales it with zoom.
+  const factory Annotation.stroke({
+    required String id,
+    required int pageNumber,
+    required List<PagePoint> points,
+    required PageRect rect,
+    required int colorArgb,
+    @Default(2.0) double strokeWidth,
+  }) = StrokeAnnotation;
+
+  /// Semi-transparent highlight rectangle.
+  const factory Annotation.highlight({
+    required String id,
+    required int pageNumber,
+    required PageRect rect,
+    @Default(0xFFFFFF00) int colorArgb,
+    @Default(0.4) double opacity,
+  }) = HighlightAnnotation;
 
   /// JSON factory used by [json_serializable] to round-trip the sealed
   /// union. The generated `_$AnnotationFromJson` is produced by
