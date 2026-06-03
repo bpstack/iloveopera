@@ -10,9 +10,10 @@ import '../providers/annotation_providers.dart';
 /// for every visible page; renders all annotations of that page on top of
 /// pdfrx's own rendering.
 ///
-/// The widget never computes screen/page transforms by hand — it uses the
-/// page's bounding rect (the [LayoutBuilder] constraints) and the page's
-/// intrinsic size in PDF points to derive a single scale factor (R5).
+/// Text content is entered through a modal dialog (not inline) — editing inside
+/// pdfrx's overlay fought pdfrx for keyboard focus, so a dialog (its own focus
+/// scope) is reliable. Coordinates are always in PDF points (R5); a single
+/// scale factor maps points to overlay pixels.
 class AnnotationLayer extends ConsumerWidget {
   const AnnotationLayer({super.key, required this.page});
 
@@ -38,7 +39,7 @@ class AnnotationLayer extends ConsumerWidget {
                 child: GestureDetector(
                   behavior: HitTestBehavior.translucent,
                   onTapUp: (details) =>
-                      _onBackgroundTap(ref, details.localPosition, scale),
+                      _onBackgroundTap(context, ref, details.localPosition, scale),
                 ),
               ),
             for (final a in annotations)
@@ -60,35 +61,42 @@ class AnnotationLayer extends ConsumerWidget {
     );
   }
 
-  void _onBackgroundTap(WidgetRef ref, Offset localPosition, double scale) {
+  Future<void> _onBackgroundTap(
+    BuildContext context,
+    WidgetRef ref,
+    Offset localPosition,
+    double scale,
+  ) async {
     final tool = ref.read(annotationToolProvider);
     if (tool == AnnotationTool.select) {
       ref.read(selectedAnnotationProvider.notifier).clear();
       return;
     }
+
     final double xPoints = localPosition.dx / scale;
     final double yPoints = localPosition.dy / scale;
     const double defaultW = 200;
     const double defaultH = 50;
     final double clampedX = xPoints.clamp(0, page.width - defaultW);
     final double clampedY = yPoints.clamp(0, page.height - defaultH);
-
     final id = 'a-${DateTime.now().microsecondsSinceEpoch}';
+
     if (tool == AnnotationTool.addText) {
+      final text = await showAnnotationTextDialog(context, initialText: '');
+      // Always return to select mode after attempting to add.
+      ref.read(annotationToolProvider.notifier).set(AnnotationTool.select);
+      if (text == null || text.trim().isEmpty) return;
       final style = ref.read(textStyleProvider);
       ref.read(annotationsProvider.notifier).addLocal(Annotation.text(
             id: id,
             pageNumber: page.pageNumber,
             rect: PageRect(x: clampedX, y: clampedY, width: defaultW, height: defaultH),
-            text: 'Texto',
+            text: text.trim(),
             fontFamily: style.fontFamily,
             fontSize: style.fontSize,
             colorArgb: style.colorArgb,
           ));
-      ref.read(annotationToolProvider.notifier).set(AnnotationTool.select);
       ref.read(selectedAnnotationProvider.notifier).set(id);
-      // Start editing immediately so the user can type.
-      ref.read(editingAnnotationProvider.notifier).set(id);
     } else {
       final style = ref.read(rectStyleProvider);
       ref.read(annotationsProvider.notifier).addLocal(Annotation.rect(
@@ -104,13 +112,64 @@ class AnnotationLayer extends ConsumerWidget {
   }
 }
 
+/// Modal dialog to enter/edit annotation text. Returns the text, or `null` if
+/// cancelled. Lives outside pdfrx's focus scope, so typing (incl. Space) works.
+Future<String?> showAnnotationTextDialog(
+  BuildContext context, {
+  required String initialText,
+}) {
+  return showDialog<String>(
+    context: context,
+    builder: (_) => _TextInputDialog(initialText: initialText),
+  );
+}
+
+class _TextInputDialog extends StatefulWidget {
+  const _TextInputDialog({required this.initialText});
+  final String initialText;
+
+  @override
+  State<_TextInputDialog> createState() => _TextInputDialogState();
+}
+
+class _TextInputDialogState extends State<_TextInputDialog> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.initialText);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Texto'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        maxLines: null,
+        decoration: const InputDecoration(hintText: 'Escribe el texto'),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text),
+          child: const Text('Aceptar'),
+        ),
+      ],
+    );
+  }
+}
+
 /// A single annotation, positioned and interactive.
 ///
-/// Dragging is handled with LOCAL state (a temporary screen-space offset) and
-/// committed to the store only on pan end — this avoids rebuilding the whole
-/// overlay on every pointer move (the cause of the earlier jank). Text
-/// annotations switch to an inline editor while their id is in
-/// [editingAnnotationProvider].
+/// Dragging uses LOCAL state (a temporary screen-space offset) committed to the
+/// store only on pan end — avoids rebuilding the whole overlay per pointer move.
 class _AnnotationWidget extends ConsumerStatefulWidget {
   const _AnnotationWidget({
     super.key,
@@ -130,26 +189,24 @@ class _AnnotationWidget extends ConsumerStatefulWidget {
 class _AnnotationWidgetState extends ConsumerState<_AnnotationWidget> {
   Offset _drag = Offset.zero;
 
-  void _commitText(String value) {
+  Future<void> _editText() async {
     final a = widget.annotation;
-    final text = value.trim();
-    if (text.isEmpty) {
-      // An empty text annotation is discarded.
+    if (a is! TextAnnotation) return;
+    final text = await showAnnotationTextDialog(context, initialText: a.text);
+    if (text == null) return; // cancelled
+    if (text.trim().isEmpty) {
       ref.read(annotationsProvider.notifier).removeLocal(a.id);
-    } else if (a is TextAnnotation) {
-      ref.read(annotationsProvider.notifier).updateLocal(a.copyWith(text: text));
+    } else {
+      ref.read(annotationsProvider.notifier).updateLocal(a.copyWith(text: text.trim()));
     }
-    ref.read(editingAnnotationProvider.notifier).clear();
   }
 
   @override
   Widget build(BuildContext context) {
     final tool = ref.watch(annotationToolProvider);
-    final editingId = ref.watch(editingAnnotationProvider);
     final a = widget.annotation;
     final scale = widget.scale;
-    final isEditing = a is TextAnnotation && editingId == a.id;
-    final canDrag = tool == AnnotationTool.select && !isEditing;
+    final canDrag = tool == AnnotationTool.select;
 
     final Widget visual = switch (a) {
       TextAnnotation(:final fontFamily, :final fontSize, :final colorArgb, :final text) =>
@@ -159,8 +216,6 @@ class _AnnotationWidgetState extends ConsumerState<_AnnotationWidget> {
           fontSize: fontSize * scale,
           colorArgb: colorArgb,
           isSelected: widget.isSelected,
-          isEditing: isEditing,
-          onCommit: _commitText,
         ),
       RectAnnotation(:final colorArgb, :final opacity) => _RectAnnotationVisual(
           colorArgb: colorArgb,
@@ -169,20 +224,12 @@ class _AnnotationWidgetState extends ConsumerState<_AnnotationWidget> {
         ),
     };
 
-    // The committed position is applied by the parent Positioned; the
-    // in-progress drag is a local visual translation (no store writes per
-    // frame). transformHitTests keeps the hit area under the cursor.
     return Transform.translate(
       offset: _drag,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => ref.read(selectedAnnotationProvider.notifier).set(a.id),
-        onDoubleTap: a is TextAnnotation
-            ? () {
-                ref.read(selectedAnnotationProvider.notifier).set(a.id);
-                ref.read(editingAnnotationProvider.notifier).set(a.id);
-              }
-            : null,
+        onDoubleTap: a is TextAnnotation ? _editText : null,
         onPanStart: canDrag
             ? (_) => ref.read(selectedAnnotationProvider.notifier).set(a.id)
             : null,
@@ -213,8 +260,6 @@ class _TextAnnotationVisual extends StatelessWidget {
     required this.fontSize,
     required this.colorArgb,
     required this.isSelected,
-    required this.isEditing,
-    required this.onCommit,
   });
 
   final String text;
@@ -222,94 +267,29 @@ class _TextAnnotationVisual extends StatelessWidget {
   final double fontSize;
   final int colorArgb;
   final bool isSelected;
-  final bool isEditing;
-  final ValueChanged<String> onCommit;
 
   @override
   Widget build(BuildContext context) {
-    final textStyle = TextStyle(
-      fontFamily: fontFamily,
-      fontSize: fontSize,
-      color: Color(colorArgb),
-      height: 1.0,
-    );
-
     return Container(
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.001),
-        border: (isSelected || isEditing)
+        border: isSelected
             ? Border.all(color: Colors.indigoAccent, width: 1.5)
             : null,
       ),
       padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
-      child: isEditing
-          ? _TextEditor(initialText: text, style: textStyle, onCommit: onCommit)
-          : Align(
-              alignment: Alignment.topLeft,
-              child: Text(text, style: textStyle),
-            ),
-    );
-  }
-}
-
-/// Inline text editor shown while a text annotation is being edited.
-class _TextEditor extends StatefulWidget {
-  const _TextEditor({
-    required this.initialText,
-    required this.style,
-    required this.onCommit,
-  });
-
-  final String initialText;
-  final TextStyle style;
-  final ValueChanged<String> onCommit;
-
-  @override
-  State<_TextEditor> createState() => _TextEditorState();
-}
-
-class _TextEditorState extends State<_TextEditor> {
-  late final TextEditingController _controller =
-      TextEditingController(text: widget.initialText);
-  late final FocusNode _focus = FocusNode();
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _focus.requestFocus();
-      _controller.selection = TextSelection(
-        baseOffset: 0,
-        extentOffset: _controller.text.length,
-      );
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _focus.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: _controller,
-      focusNode: _focus,
-      maxLines: null,
-      expands: false,
-      cursorColor: Colors.indigoAccent,
-      style: widget.style,
-      decoration: const InputDecoration(
-        isDense: true,
-        border: InputBorder.none,
-        contentPadding: EdgeInsets.zero,
-        hintText: 'Escribe…',
+      child: Align(
+        alignment: Alignment.topLeft,
+        child: Text(
+          text,
+          style: TextStyle(
+            fontFamily: fontFamily,
+            fontSize: fontSize,
+            color: Color(colorArgb),
+            height: 1.0,
+          ),
+        ),
       ),
-      // Commit when the user clicks elsewhere; keeps multi-line input working.
-      onTapOutside: (_) => widget.onCommit(_controller.text),
-      onSubmitted: (_) => widget.onCommit(_controller.text),
     );
   }
 }

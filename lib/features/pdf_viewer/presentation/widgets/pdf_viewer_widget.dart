@@ -75,14 +75,12 @@ class _PdfViewerWidgetState extends ConsumerState<PdfViewerWidget> {
     // In "select" mode the user drags annotations, so the viewer's own pan
     // gesture is disabled to avoid fighting the drag (scroll wheel/scrollbar
     // still work). In add modes panning stays on.
+    // In "select" mode the user drags annotations, so the viewer's own pan
+    // gesture is disabled to avoid fighting the drag (wheel/scrollbar still
+    // scroll). Text entry now happens in a modal dialog, so no keyboard-focus
+    // workarounds are needed here.
     final tool = ref.watch(annotationToolProvider);
     final panEnabled = tool != AnnotationTool.select;
-
-    // While editing a text annotation: (1) disable pdfrx keyboard navigation,
-    // and (2) stop pdfrx's key-handler FocusNode from requesting focus — it was
-    // stealing focus from the TextField, so Space/keys went to the viewer
-    // (scrolling) instead of the text input.
-    final isEditingText = ref.watch(editingAnnotationProvider) != null;
 
     return PdfViewer(
       PdfDocumentRefDirect(document),
@@ -90,10 +88,6 @@ class _PdfViewerWidgetState extends ConsumerState<PdfViewerWidget> {
       params: PdfViewerParams(
         backgroundColor: Colors.transparent,
         panEnabled: panEnabled,
-        enableKeyboardNavigation: !isEditingText,
-        keyHandlerParams: PdfViewerKeyHandlerParams(
-          canRequestFocus: !isEditingText,
-        ),
         pageDropShadow: const BoxShadow(
           color: Colors.black26,
           blurRadius: 6,
