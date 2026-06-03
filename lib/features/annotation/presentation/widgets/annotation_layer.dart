@@ -80,7 +80,7 @@ class AnnotationLayer extends ConsumerWidget {
             id: id,
             pageNumber: page.pageNumber,
             rect: PageRect(x: clampedX, y: clampedY, width: defaultW, height: defaultH),
-            text: '',
+            text: 'Texto',
             fontFamily: style.fontFamily,
             fontSize: style.fontSize,
             colorArgb: style.colorArgb,
