@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/annotation_providers.dart';
 
-/// Left-hand vertical palette: tool selector + delete selected.
+/// Left-hand vertical palette: tool selector, undo/redo, and delete selected.
 class ToolPanel extends ConsumerWidget {
   const ToolPanel({super.key});
 
@@ -11,6 +11,7 @@ class ToolPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tool = ref.watch(annotationToolProvider);
     final selectedId = ref.watch(selectedAnnotationProvider);
+    final store = ref.watch(annotationStoreProvider);
     final scheme = Theme.of(context).colorScheme;
 
     Widget btn(IconData icon, String label, AnnotationTool t) {
@@ -36,6 +37,23 @@ class ToolPanel extends ConsumerWidget {
           btn(Icons.pan_tool_alt, 'Seleccionar (mover/borrar)', AnnotationTool.select),
           btn(Icons.title, 'Añadir texto', AnnotationTool.addText),
           btn(Icons.crop_square, 'Añadir rect (tipp-ex)', AnnotationTool.addRect),
+          btn(Icons.brush, 'Dibujo a mano alzada', AnnotationTool.addStroke),
+          btn(Icons.highlight, 'Resaltar zona', AnnotationTool.addHighlight),
+          const Divider(height: 12),
+          IconButton(
+            tooltip: 'Deshacer (Ctrl+Z)',
+            icon: const Icon(Icons.undo),
+            onPressed: store.canUndo
+                ? () => ref.read(annotationsProvider.notifier).undoAnnotations()
+                : null,
+          ),
+          IconButton(
+            tooltip: 'Rehacer (Ctrl+Y)',
+            icon: const Icon(Icons.redo),
+            onPressed: store.canRedo
+                ? () => ref.read(annotationsProvider.notifier).redoAnnotations()
+                : null,
+          ),
           const Divider(height: 12),
           IconButton(
             tooltip: 'Eliminar selección',

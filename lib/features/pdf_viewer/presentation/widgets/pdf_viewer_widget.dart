@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pdfrx/pdfrx.dart';
 
@@ -72,15 +73,12 @@ class _PdfViewerWidgetState extends ConsumerState<PdfViewerWidget> {
     final hasSession = ref.watch(pdfSessionProvider) != null;
     if (!hasSession) return const SizedBox.shrink();
 
-    // In "select" mode the user drags annotations, so the viewer's own pan
-    // gesture is disabled to avoid fighting the drag (scroll wheel/scrollbar
-    // still work). In add modes panning stays on.
-    // In "select" mode the user drags annotations, so the viewer's own pan
-    // gesture is disabled to avoid fighting the drag (wheel/scrollbar still
-    // scroll). Text entry now happens in a modal dialog, so no keyboard-focus
-    // workarounds are needed here.
+    // Disable pdfrx's own pan gesture when the user is dragging annotations
+    // (select mode) or drawing freehand strokes — both compete with pdfrx pan.
+    // Scroll wheel and scrollbars still work regardless of panEnabled.
     final tool = ref.watch(annotationToolProvider);
-    final panEnabled = tool != AnnotationTool.select;
+    final panEnabled =
+        tool != AnnotationTool.select && tool != AnnotationTool.addStroke;
 
     return PdfViewer(
       PdfDocumentRefDirect(document),
@@ -94,6 +92,20 @@ class _PdfViewerWidgetState extends ConsumerState<PdfViewerWidget> {
           spreadRadius: 1,
           offset: Offset(1, 2),
         ),
+        // Ctrl+Z / Ctrl+Y undo/redo when no text-edit session is active.
+        onKey: (params, key, isRealKeyPress) {
+          if (!isRealKeyPress) return null;
+          if (!HardwareKeyboard.instance.isControlPressed) return null;
+          if (key == LogicalKeyboardKey.keyZ) {
+            ref.read(annotationsProvider.notifier).undoAnnotations();
+            return true;
+          }
+          if (key == LogicalKeyboardKey.keyY) {
+            ref.read(annotationsProvider.notifier).redoAnnotations();
+            return true;
+          }
+          return null;
+        },
         // Annotations are painted in page coordinates by pdfrx (R5):
         // the builder is called for each visible page with the page's
         // bounding rect on screen, and our AnnotationLayer handles the

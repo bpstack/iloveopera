@@ -1,9 +1,13 @@
+import 'dart:math' show min, max;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pdfrx/pdfrx.dart';
 
 import '../../domain/entities/annotation.dart';
 import '../../domain/entities/page_rect.dart';
+import '../../domain/entities/pdf_point.dart';
+import '../painters/stroke_painter.dart';
 import '../providers/annotation_providers.dart';
 
 /// Per-page overlay widget. Returned by [PdfViewerParams.pageOverlaysBuilder]
@@ -34,7 +38,10 @@ class AnnotationLayer extends ConsumerWidget {
         return Stack(
           clipBehavior: Clip.none,
           children: <Widget>[
-            if (tool == AnnotationTool.addText || tool == AnnotationTool.addRect)
+            // Background tap handler for point-placement tools
+            if (tool == AnnotationTool.addText ||
+                tool == AnnotationTool.addRect ||
+                tool == AnnotationTool.addHighlight)
               Positioned.fill(
                 child: GestureDetector(
                   behavior: HitTestBehavior.translucent,
@@ -42,6 +49,8 @@ class AnnotationLayer extends ConsumerWidget {
                       _onBackgroundTap(context, ref, details.localPosition, scale),
                 ),
               ),
+
+            // Existing annotations
             for (final a in annotations)
               Positioned(
                 left: a.rect.x * scale,
@@ -54,6 +63,12 @@ class AnnotationLayer extends ConsumerWidget {
                   scale: scale,
                   isSelected: a.id == selectedId,
                 ),
+              ),
+
+            // Live stroke drawing layer — on top of everything
+            if (tool == AnnotationTool.addStroke)
+              Positioned.fill(
+                child: _StrokeDrawingLayer(page: page, scale: scale),
               ),
           ],
         );
@@ -83,7 +98,6 @@ class AnnotationLayer extends ConsumerWidget {
 
     if (tool == AnnotationTool.addText) {
       final text = await showAnnotationTextDialog(context, initialText: '');
-      // Always return to select mode after attempting to add.
       ref.read(annotationToolProvider.notifier).set(AnnotationTool.select);
       if (text == null || text.trim().isEmpty) return;
       final style = ref.read(textStyleProvider);
@@ -97,9 +111,20 @@ class AnnotationLayer extends ConsumerWidget {
             colorArgb: style.colorArgb,
           ));
       ref.read(selectedAnnotationProvider.notifier).set(id);
-    } else {
+    } else if (tool == AnnotationTool.addRect) {
       final style = ref.read(rectStyleProvider);
       ref.read(annotationsProvider.notifier).addLocal(Annotation.rect(
+            id: id,
+            pageNumber: page.pageNumber,
+            rect: PageRect(x: clampedX, y: clampedY, width: defaultW, height: defaultH),
+            colorArgb: style.colorArgb,
+            opacity: style.opacity,
+          ));
+      ref.read(annotationToolProvider.notifier).set(AnnotationTool.select);
+      ref.read(selectedAnnotationProvider.notifier).set(id);
+    } else if (tool == AnnotationTool.addHighlight) {
+      final style = ref.read(highlightStyleProvider);
+      ref.read(annotationsProvider.notifier).addLocal(Annotation.highlight(
             id: id,
             pageNumber: page.pageNumber,
             rect: PageRect(x: clampedX, y: clampedY, width: defaultW, height: defaultH),
@@ -166,6 +191,101 @@ class _TextInputDialogState extends State<_TextInputDialog> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Live stroke drawing
+// ---------------------------------------------------------------------------
+
+/// Captures pan gestures and draws the stroke in progress using [InProgressStrokePainter].
+/// On pan end, converts screen points to PDF points and commits a [StrokeAnnotation].
+/// Stays in [AnnotationTool.addStroke] mode after each stroke so multiple
+/// strokes can be drawn without re-selecting the tool.
+class _StrokeDrawingLayer extends ConsumerStatefulWidget {
+  const _StrokeDrawingLayer({required this.page, required this.scale});
+
+  final PdfPage page;
+  final double scale;
+
+  @override
+  ConsumerState<_StrokeDrawingLayer> createState() => _StrokeDrawingLayerState();
+}
+
+class _StrokeDrawingLayerState extends ConsumerState<_StrokeDrawingLayer> {
+  final List<Offset> _screenPoints = [];
+
+  @override
+  Widget build(BuildContext context) {
+    final strokeStyle = ref.watch(strokeStyleProvider);
+    final strokeWidthPx = strokeStyle.strokeWidth * widget.scale;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onPanStart: (d) => setState(() {
+        _screenPoints
+          ..clear()
+          ..add(d.localPosition);
+      }),
+      onPanUpdate: (d) => setState(() => _screenPoints.add(d.localPosition)),
+      onPanEnd: (_) => _commitStroke(),
+      child: CustomPaint(
+        painter: InProgressStrokePainter(
+          points: List<Offset>.from(_screenPoints),
+          colorArgb: strokeStyle.colorArgb,
+          strokeWidthPx: strokeWidthPx,
+        ),
+        child: const SizedBox.expand(),
+      ),
+    );
+  }
+
+  void _commitStroke() {
+    if (_screenPoints.length < 2) {
+      setState(() => _screenPoints.clear());
+      return;
+    }
+
+    final scale = widget.scale;
+    final page = widget.page;
+
+    // Convert screen pixels → PDF points (page-absolute)
+    final pdfPoints = _screenPoints
+        .map((p) => PagePoint(x: p.dx / scale, y: p.dy / scale))
+        .toList(growable: false);
+
+    // Bounding box with a small padding equal to half stroke width
+    double minX = double.infinity, minY = double.infinity;
+    double maxX = double.negativeInfinity, maxY = double.negativeInfinity;
+    for (final p in pdfPoints) {
+      minX = min(minX, p.x);
+      minY = min(minY, p.y);
+      maxX = max(maxX, p.x);
+      maxY = max(maxY, p.y);
+    }
+
+    final strokeStyle = ref.read(strokeStyleProvider);
+    final pad = strokeStyle.strokeWidth / 2;
+    final boxX = (minX - pad).clamp(0.0, page.width);
+    final boxY = (minY - pad).clamp(0.0, page.height);
+    final boxW = ((maxX - minX + pad * 2)).clamp(1.0, page.width - boxX);
+    final boxH = ((maxY - minY + pad * 2)).clamp(1.0, page.height - boxY);
+
+    final id = 'a-${DateTime.now().microsecondsSinceEpoch}';
+    ref.read(annotationsProvider.notifier).addLocal(Annotation.stroke(
+          id: id,
+          pageNumber: page.pageNumber,
+          points: pdfPoints,
+          rect: PageRect(x: boxX, y: boxY, width: boxW, height: boxH),
+          colorArgb: strokeStyle.colorArgb,
+          strokeWidth: strokeStyle.strokeWidth,
+        ));
+
+    setState(() => _screenPoints.clear());
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Per-annotation widget
+// ---------------------------------------------------------------------------
+
 /// A single annotation, positioned and interactive.
 ///
 /// Dragging uses LOCAL state (a temporary screen-space offset) committed to the
@@ -193,7 +313,7 @@ class _AnnotationWidgetState extends ConsumerState<_AnnotationWidget> {
     final a = widget.annotation;
     if (a is! TextAnnotation) return;
     final text = await showAnnotationTextDialog(context, initialText: a.text);
-    if (text == null) return; // cancelled
+    if (text == null) return;
     if (text.trim().isEmpty) {
       ref.read(annotationsProvider.notifier).removeLocal(a.id);
     } else {
@@ -218,6 +338,29 @@ class _AnnotationWidgetState extends ConsumerState<_AnnotationWidget> {
           isSelected: widget.isSelected,
         ),
       RectAnnotation(:final colorArgb, :final opacity) => _RectAnnotationVisual(
+          colorArgb: colorArgb,
+          opacity: opacity,
+          isSelected: widget.isSelected,
+        ),
+      StrokeAnnotation(:final points, :final colorArgb, :final strokeWidth, :final rect) =>
+        CustomPaint(
+          painter: StrokePainter(
+            points: points,
+            offsetX: rect.x,
+            offsetY: rect.y,
+            scale: scale,
+            colorArgb: colorArgb,
+            strokeWidth: strokeWidth,
+          ),
+          child: widget.isSelected
+              ? Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.indigoAccent, width: 1.5),
+                  ),
+                )
+              : const SizedBox.expand(),
+        ),
+      HighlightAnnotation(:final colorArgb, :final opacity) => _RectAnnotationVisual(
           colorArgb: colorArgb,
           opacity: opacity,
           isSelected: widget.isSelected,
@@ -252,6 +395,10 @@ class _AnnotationWidgetState extends ConsumerState<_AnnotationWidget> {
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// Visual widgets
+// ---------------------------------------------------------------------------
 
 class _TextAnnotationVisual extends StatelessWidget {
   const _TextAnnotationVisual({

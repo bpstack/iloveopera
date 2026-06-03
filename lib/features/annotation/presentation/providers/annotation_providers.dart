@@ -7,7 +7,9 @@ import '../../domain/entities/page_rect.dart';
 import '../../domain/repositories/annotation_store.dart';
 import '../../domain/usecases/add_annotation.dart';
 import '../../domain/usecases/move_annotation.dart';
+import '../../domain/usecases/redo_annotation.dart';
 import '../../domain/usecases/remove_annotation.dart';
+import '../../domain/usecases/undo_annotation.dart';
 import '../../domain/usecases/update_annotation.dart';
 
 /// Singleton annotation store for the current document. Replaced whenever
@@ -30,6 +32,16 @@ final moveAnnotationProvider = Provider<MoveAnnotation>(
 final removeAnnotationProvider = Provider<RemoveAnnotation>(
   (ref) => RemoveAnnotation(ref.watch(annotationStoreProvider)),
 );
+final undoAnnotationProvider = Provider<UndoAnnotation>(
+  (ref) => UndoAnnotation(ref.watch(annotationStoreProvider)),
+);
+final redoAnnotationProvider = Provider<RedoAnnotation>(
+  (ref) => RedoAnnotation(ref.watch(annotationStoreProvider)),
+);
+
+// ---------------------------------------------------------------------------
+// Style specs
+// ---------------------------------------------------------------------------
 
 /// Current style for newly-created text annotations.
 class TextStyleSpec {
@@ -94,8 +106,66 @@ class RectStyleNotifier extends Notifier<RectStyleSpec> {
 final rectStyleProvider =
     NotifierProvider<RectStyleNotifier, RectStyleSpec>(RectStyleNotifier.new);
 
+/// Current style for newly-created freehand stroke annotations.
+class StrokeStyleSpec {
+  const StrokeStyleSpec({required this.colorArgb, required this.strokeWidth});
+
+  final int colorArgb;
+  final double strokeWidth;
+
+  StrokeStyleSpec copyWith({int? colorArgb, double? strokeWidth}) => StrokeStyleSpec(
+        colorArgb: colorArgb ?? this.colorArgb,
+        strokeWidth: strokeWidth ?? this.strokeWidth,
+      );
+}
+
+class StrokeStyleNotifier extends Notifier<StrokeStyleSpec> {
+  @override
+  StrokeStyleSpec build() => const StrokeStyleSpec(
+        colorArgb: 0xFF000000,
+        strokeWidth: 2.0,
+      );
+
+  void setColor(int argb) => state = state.copyWith(colorArgb: argb);
+  void setWidth(double w) => state = state.copyWith(strokeWidth: w);
+}
+
+final strokeStyleProvider =
+    NotifierProvider<StrokeStyleNotifier, StrokeStyleSpec>(StrokeStyleNotifier.new);
+
+/// Current style for newly-created highlight annotations.
+class HighlightStyleSpec {
+  const HighlightStyleSpec({required this.colorArgb, required this.opacity});
+
+  final int colorArgb;
+  final double opacity;
+
+  HighlightStyleSpec copyWith({int? colorArgb, double? opacity}) => HighlightStyleSpec(
+        colorArgb: colorArgb ?? this.colorArgb,
+        opacity: opacity ?? this.opacity,
+      );
+}
+
+class HighlightStyleNotifier extends Notifier<HighlightStyleSpec> {
+  @override
+  HighlightStyleSpec build() => const HighlightStyleSpec(
+        colorArgb: 0xFFFFFF00,
+        opacity: 0.4,
+      );
+
+  void setColor(int argb) => state = state.copyWith(colorArgb: argb);
+  void setOpacity(double v) => state = state.copyWith(opacity: v);
+}
+
+final highlightStyleProvider =
+    NotifierProvider<HighlightStyleNotifier, HighlightStyleSpec>(HighlightStyleNotifier.new);
+
+// ---------------------------------------------------------------------------
+// Tool selection
+// ---------------------------------------------------------------------------
+
 /// Tool currently active in the editor.
-enum AnnotationTool { select, addText, addRect }
+enum AnnotationTool { select, addText, addRect, addStroke, addHighlight }
 
 class AnnotationToolNotifier extends Notifier<AnnotationTool> {
   @override
@@ -107,8 +177,11 @@ class AnnotationToolNotifier extends Notifier<AnnotationTool> {
 final annotationToolProvider =
     NotifierProvider<AnnotationToolNotifier, AnnotationTool>(AnnotationToolNotifier.new);
 
-/// Currently selected annotation id, or `null` if none. Used to draw the
-/// selection chrome and to delete via the keyboard / a button.
+// ---------------------------------------------------------------------------
+// Selection
+// ---------------------------------------------------------------------------
+
+/// Currently selected annotation id, or `null` if none.
 class SelectedAnnotationNotifier extends Notifier<String?> {
   @override
   String? build() => null;
@@ -120,12 +193,16 @@ class SelectedAnnotationNotifier extends Notifier<String?> {
 final selectedAnnotationProvider =
     NotifierProvider<SelectedAnnotationNotifier, String?>(SelectedAnnotationNotifier.new);
 
+// ---------------------------------------------------------------------------
+// Main annotation list — reactive, with undo/redo
+// ---------------------------------------------------------------------------
+
 /// Reactive list of all annotations in the open document.
 class AnnotationsNotifier extends Notifier<List<Annotation>> {
   @override
   List<Annotation> build() {
     final store = ref.watch(annotationStoreProvider);
-    final sub = store; // re-read on demand via the helper getter
+    final sub = store;
     return sub.listAll();
   }
 
@@ -151,6 +228,20 @@ class AnnotationsNotifier extends Notifier<List<Annotation>> {
     if (ref.read(selectedAnnotationProvider) == id) {
       ref.read(selectedAnnotationProvider.notifier).clear();
     }
+    _refresh();
+  }
+
+  /// Undo the last mutation. No-op if the stack is empty.
+  void undoAnnotations() {
+    ref.read(undoAnnotationProvider).call();
+    ref.read(selectedAnnotationProvider.notifier).clear();
+    _refresh();
+  }
+
+  /// Redo the last undone mutation. No-op if the redo stack is empty.
+  void redoAnnotations() {
+    ref.read(redoAnnotationProvider).call();
+    ref.read(selectedAnnotationProvider.notifier).clear();
     _refresh();
   }
 
