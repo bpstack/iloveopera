@@ -526,7 +526,17 @@ Verificado contra la documentación de pub.dev (2026-06-03):
 - [ ] Instrucciones de build Linux (Native Assets / pdfium — R2)
 - [ ] Rendimiento con PDFs grandes (lazy render, caché de páginas)
 - [ ] Pulido de UI: barra superior, herramientas, responsive móvil/escritorio
-- **DoD:** binarios funcionando en las 3 plataformas, fluido con PDFs grandes.
+- [ ] **Rediseño del toolbar y panel de propiedades** (estandarizar, look pro):
+      - Toolbar vertical de ICONOS a la izquierda (select, texto, tipp-ex, y los
+        de Fase 3: dibujo, resaltado). Compacto, agrupado.
+      - **Panel de propiedades contextual a la DERECHA** que muestra solo lo
+        relevante a la herramienta/anotación activa (fuente: familia/tamaño/color;
+        rect: color/opacidad). NO estirar controles a lo largo de la barra
+        superior (feedback: queda pobre y desperdicia espacio).
+      - Responsive: en móvil el panel de propiedades pasa a hoja inferior / bottom
+        sheet en vez de columna lateral.
+- **DoD:** binarios funcionando en las 3 plataformas, fluido con PDFs grandes,
+  UI con toolbar + panel de propiedades estandarizados.
 
 ### Funciones futuras (NO implementar — solo dejar interfaces preparadas)
 - [ ] Firma manuscrita
