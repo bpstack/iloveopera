@@ -487,7 +487,7 @@ Verificado contra la documentación de pub.dev (2026-06-03):
 - [x] Barra lateral opcional de miniaturas
 - **DoD:** abrir un PDF real y navegarlo con zoom en desktop y Android.
 
-### Fase 2 — Capa de anotación: texto y "tipp-ex"
+### Fase 2 — Capa de anotación: texto y "tipp-ex" ✅
 - [x] Modelo de anotaciones (TextAnno, RectAnno) serializable
 - [x] Añadir texto libre sobre una página
 - [x] Elegir familia, tamaño y color de fuente
@@ -495,6 +495,8 @@ Verificado contra la documentación de pub.dev (2026-06-03):
 - [x] Eliminar textos
 - [x] Rectángulo opaco ("tipp-ex") para ocultar/escribir encima
 - [x] Coordenadas relativas a la página (fieles al zoom)
+- [x] Entrada de texto por diálogo modal (fiable, sin conflicto de foco con pdfrx)
+- Nota: rediseño visual del toolbar aplazado a Fase 6 (spec en §Fase 6)
 - **DoD:** tapar texto del PDF y escribir encima con fuente configurable.
 
 ### Fase 3 — Anotación avanzada + historial
