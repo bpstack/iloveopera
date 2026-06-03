@@ -26,8 +26,21 @@ abstract class AnnotationStore {
   /// Remove an annotation by id. Returns `true` if something was removed.
   bool remove(String id);
 
-  /// Drop every annotation. Used when a new document is opened.
+  /// Drop every annotation and reset the undo/redo stacks.
+  /// Called when a new document is opened — not undoable.
   void clear();
+
+  /// Undo the last undoable mutation. Returns `true` if something was undone.
+  bool undo();
+
+  /// Redo the last undone mutation. Returns `true` if something was redone.
+  bool redo();
+
+  /// Whether [undo] has something to revert.
+  bool get canUndo;
+
+  /// Whether [redo] has something to replay.
+  bool get canRedo;
 
   /// Serialize the entire store to a JSON document.
   String toJson();

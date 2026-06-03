@@ -14,6 +14,8 @@ class MoveAnnotation {
     final moved = switch (existing) {
       TextAnnotation() => existing.copyWith(rect: newRect),
       RectAnnotation() => existing.copyWith(rect: newRect),
+      StrokeAnnotation() => existing.copyWith(rect: newRect),
+      HighlightAnnotation() => existing.copyWith(rect: newRect),
     };
     return _store.update(moved);
   }
