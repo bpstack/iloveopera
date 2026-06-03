@@ -18,13 +18,50 @@ import '../providers/annotation_providers.dart';
 /// pdfrx's overlay fought pdfrx for keyboard focus, so a dialog (its own focus
 /// scope) is reliable. Coordinates are always in PDF points (R5); a single
 /// scale factor maps points to overlay pixels.
-class AnnotationLayer extends ConsumerWidget {
+class AnnotationLayer extends ConsumerStatefulWidget {
   const AnnotationLayer({super.key, required this.page});
-
   final PdfPage page;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AnnotationLayer> createState() => _AnnotationLayerState();
+}
+
+class _AnnotationLayerState extends ConsumerState<AnnotationLayer> {
+  PdfPage get page => widget.page;
+
+  // Active resize state — updated on every pointer move, committed on pan end.
+  String? _resizingId;
+  double _resizeDx = 0;
+  double _resizeDy = 0;
+
+  void _onResizeUpdate(String id, double dx, double dy) {
+    setState(() {
+      _resizingId = id;
+      _resizeDx += dx;
+      _resizeDy += dy;
+    });
+  }
+
+  void _onResizeEnd(String id, double scale) {
+    final a = ref.read(annotationsProvider).where((a) => a.id == id).firstOrNull;
+    if (a != null) {
+      final r = a.rect;
+      // Text: only width matters (height stays 0 = auto).
+      // Rect/highlight: both width and height.
+      final baseW = r.width > 0 ? r.width : 120.0;
+      final baseH = r.height > 0 ? r.height : 40.0;
+      final newW = (baseW + _resizeDx / scale).clamp(20.0, double.infinity);
+      final newH = a is TextAnnotation
+          ? 0.0
+          : (baseH + _resizeDy / scale).clamp(10.0, double.infinity);
+      ref.read(annotationsProvider.notifier).moveLocal(
+            id, r.copyWith(width: newW, height: newH));
+    }
+    setState(() { _resizingId = null; _resizeDx = 0; _resizeDy = 0; });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final tool = ref.watch(annotationToolProvider);
     final annotations = ref.watch(annotationsForPageProvider(page.pageNumber));
     final selectedId = ref.watch(selectedAnnotationProvider);
@@ -35,7 +72,6 @@ class AnnotationLayer extends ConsumerWidget {
         final double scale =
             constraints.maxWidth <= 0 ? 1.0 : constraints.maxWidth / pageWidth;
 
-        // Cursor hint (desktop only): changes when a placement tool is active.
         final cursor = switch (tool) {
           AnnotationTool.addText => SystemMouseCursors.text,
           AnnotationTool.addStroke => SystemMouseCursors.precise,
@@ -51,9 +87,6 @@ class AnnotationLayer extends ConsumerWidget {
             clipBehavior: Clip.none,
             children: <Widget>[
               // Tap capture layer for point-placement tools.
-              // HitTestBehavior.opaque blocks pdfrx's parent gesture recognizers
-              // from entering the gesture arena — otherwise pdfrx wins and the
-              // tap never reaches _onBackgroundTap.
               if (tool == AnnotationTool.addText ||
                   tool == AnnotationTool.addRect ||
                   tool == AnnotationTool.addHighlight)
@@ -61,41 +94,16 @@ class AnnotationLayer extends ConsumerWidget {
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTapUp: (details) =>
-                        _onBackgroundTap(context, ref, details.localPosition, scale),
+                        _onBackgroundTap(context, details.localPosition, scale),
                     child: const SizedBox.expand(),
                   ),
                 ),
 
               // Existing annotations
               for (final a in annotations)
-                // TextAnnotation auto-sizes to its content; all others use the
-                // explicit bounding rect stored in the domain entity.
-                if (a is TextAnnotation)
-                  Positioned(
-                    left: a.rect.x * scale,
-                    top: a.rect.y * scale,
-                    child: _AnnotationWidget(
-                      key: ValueKey(a.id),
-                      annotation: a,
-                      scale: scale,
-                      isSelected: a.id == selectedId,
-                    ),
-                  )
-                else
-                  Positioned(
-                    left: a.rect.x * scale,
-                    top: a.rect.y * scale,
-                    width: a.rect.width * scale,
-                    height: a.rect.height * scale,
-                    child: _AnnotationWidget(
-                      key: ValueKey(a.id),
-                      annotation: a,
-                      scale: scale,
-                      isSelected: a.id == selectedId,
-                    ),
-                  ),
+                _buildPositioned(a, scale, selectedId),
 
-              // Live stroke drawing layer — on top of everything
+              // Live stroke drawing layer
               if (tool == AnnotationTool.addStroke)
                 Positioned.fill(
                   child: _StrokeDrawingLayer(page: page, scale: scale),
@@ -107,9 +115,46 @@ class AnnotationLayer extends ConsumerWidget {
     );
   }
 
+  /// Builds a [Positioned] for [a], expanding its dimensions live during resize.
+  Widget _buildPositioned(Annotation a, double scale, String? selectedId) {
+    final isResizing = _resizingId == a.id;
+
+    double? displayW;
+    double? displayH;
+
+    if (a is TextAnnotation) {
+      // width: null (auto) until the user resizes. During resize use 120 pt base.
+      final baseW = a.rect.width > 0 ? a.rect.width : (isResizing ? 120.0 : null);
+      displayW = baseW != null
+          ? (baseW + (isResizing ? _resizeDx / scale : 0)).clamp(20.0, double.infinity)
+          : null;
+      displayH = null; // always auto-height for text
+    } else {
+      displayW = (a.rect.width + (isResizing ? _resizeDx / scale : 0))
+          .clamp(10.0, double.infinity);
+      displayH = (a.rect.height + (isResizing ? _resizeDy / scale : 0))
+          .clamp(10.0, double.infinity);
+    }
+
+    return Positioned(
+      left: a.rect.x * scale,
+      top: a.rect.y * scale,
+      width: displayW != null ? displayW * scale : null,
+      height: displayH != null ? displayH * scale : null,
+      child: _AnnotationWidget(
+        key: ValueKey(a.id),
+        annotation: a,
+        scale: scale,
+        isSelected: a.id == selectedId,
+        autoSizeText: a is TextAnnotation && displayW == null,
+        onResizeUpdate: _onResizeUpdate,
+        onResizeEnd: _onResizeEnd,
+      ),
+    );
+  }
+
   Future<void> _onBackgroundTap(
     BuildContext context,
-    WidgetRef ref,
     Offset localPosition,
     double scale,
   ) async {
@@ -121,8 +166,6 @@ class AnnotationLayer extends ConsumerWidget {
 
     final double xPoints = localPosition.dx / scale;
     final double yPoints = localPosition.dy / scale;
-    // Rect/highlight use an explicit default size; text is auto-sized so
-    // we only clamp its position to stay inside the page.
     const double defaultRectW = 150;
     const double defaultRectH = 40;
     final double clampedX = xPoints.clamp(0, page.width.toDouble());
@@ -136,8 +179,6 @@ class AnnotationLayer extends ConsumerWidget {
       ref.read(annotationToolProvider.notifier).set(AnnotationTool.select);
       if (text == null || text.trim().isEmpty) return;
       final style = ref.read(textStyleProvider);
-      // width:0/height:0 → Positioned in AnnotationLayer omits size constraints,
-      // so _TextAnnotationVisual sizes itself via IntrinsicWidth/Height.
       ref.read(annotationsProvider.notifier).addLocal(Annotation.text(
             id: id,
             pageNumber: page.pageNumber,
@@ -334,11 +375,18 @@ class _AnnotationWidget extends ConsumerStatefulWidget {
     required this.annotation,
     required this.scale,
     required this.isSelected,
+    required this.autoSizeText,
+    required this.onResizeUpdate,
+    required this.onResizeEnd,
   });
 
   final Annotation annotation;
   final double scale;
   final bool isSelected;
+  /// True when this TextAnnotation has no explicit width and should auto-size.
+  final bool autoSizeText;
+  final void Function(String id, double dx, double dy) onResizeUpdate;
+  final void Function(String id, double scale) onResizeEnd;
 
   @override
   ConsumerState<_AnnotationWidget> createState() => _AnnotationWidgetState();
@@ -374,6 +422,7 @@ class _AnnotationWidgetState extends ConsumerState<_AnnotationWidget> {
           fontSize: fontSize * scale,
           colorArgb: colorArgb,
           isSelected: widget.isSelected,
+          autoSize: widget.autoSizeText,
         ),
       RectAnnotation(:final colorArgb, :final opacity) => _RectAnnotationVisual(
           colorArgb: colorArgb,
@@ -405,30 +454,63 @@ class _AnnotationWidgetState extends ConsumerState<_AnnotationWidget> {
         ),
     };
 
+    // Resize handle — shown for text/rect/highlight when selected in select mode.
+    final bool showResize = widget.isSelected &&
+        canDrag &&
+        a is! StrokeAnnotation;
+
     return Transform.translate(
       offset: _drag,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => ref.read(selectedAnnotationProvider.notifier).set(a.id),
-        onDoubleTap: a is TextAnnotation ? _editText : null,
-        onPanStart: canDrag
-            ? (_) => ref.read(selectedAnnotationProvider.notifier).set(a.id)
-            : null,
-        onPanUpdate: canDrag ? (d) => setState(() => _drag += d.delta) : null,
-        onPanEnd: canDrag
-            ? (_) {
-                final r = a.rect;
-                ref.read(annotationsProvider.notifier).moveLocal(
-                      a.id,
-                      r.copyWith(
-                        x: r.x + _drag.dx / scale,
-                        y: r.y + _drag.dy / scale,
-                      ),
-                    );
-                setState(() => _drag = Offset.zero);
-              }
-            : null,
-        child: visual,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // Main annotation: handles move gesture
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => ref.read(selectedAnnotationProvider.notifier).set(a.id),
+            onDoubleTap: a is TextAnnotation ? _editText : null,
+            onPanStart: canDrag
+                ? (_) => ref.read(selectedAnnotationProvider.notifier).set(a.id)
+                : null,
+            onPanUpdate: canDrag ? (d) => setState(() => _drag += d.delta) : null,
+            onPanEnd: canDrag
+                ? (_) {
+                    final r = a.rect;
+                    ref.read(annotationsProvider.notifier).moveLocal(
+                          a.id,
+                          r.copyWith(
+                            x: r.x + _drag.dx / scale,
+                            y: r.y + _drag.dy / scale,
+                          ),
+                        );
+                    setState(() => _drag = Offset.zero);
+                  }
+                : null,
+            child: visual,
+          ),
+
+          // Resize handle at bottom-right corner
+          if (showResize)
+            Positioned(
+              right: -6,
+              bottom: -6,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onPanUpdate: (d) =>
+                    widget.onResizeUpdate(a.id, d.delta.dx, d.delta.dy),
+                onPanEnd: (_) => widget.onResizeEnd(a.id, scale),
+                child: Container(
+                  width: 14,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: Colors.indigoAccent,
+                    border: Border.all(color: Colors.white, width: 1.5),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -445,6 +527,7 @@ class _TextAnnotationVisual extends StatelessWidget {
     required this.fontSize,
     required this.colorArgb,
     required this.isSelected,
+    required this.autoSize,
   });
 
   final String text;
@@ -452,32 +535,34 @@ class _TextAnnotationVisual extends StatelessWidget {
   final double fontSize;
   final int colorArgb;
   final bool isSelected;
+  /// When true the widget shrink-wraps to fit the text (no explicit parent width).
+  /// When false the parent Positioned constrains the width and text wraps within it.
+  final bool autoSize;
 
   @override
   Widget build(BuildContext context) {
-    // IntrinsicWidth/Height let the widget shrink-wrap to fit the text
-    // (the parent Positioned sets only left/top, not width/height).
-    return IntrinsicWidth(
-      child: IntrinsicHeight(
-        child: Container(
-          decoration: BoxDecoration(
-            border: isSelected
-                ? Border.all(color: Colors.indigoAccent, width: 1.5)
-                : null,
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
-          child: Text(
-            text,
-            style: TextStyle(
-              fontFamily: fontFamily,
-              fontSize: fontSize,
-              color: Color(colorArgb),
-              height: 1.2,
-            ),
-          ),
+    final inner = Container(
+      decoration: BoxDecoration(
+        border: isSelected
+            ? Border.all(color: Colors.indigoAccent, width: 1.5)
+            : null,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+      child: Text(
+        text,
+        softWrap: true,
+        style: TextStyle(
+          fontFamily: fontFamily,
+          fontSize: fontSize,
+          color: Color(colorArgb),
+          height: 1.2,
         ),
       ),
     );
+    if (autoSize) {
+      return IntrinsicWidth(child: IntrinsicHeight(child: inner));
+    }
+    return inner;
   }
 }
 
