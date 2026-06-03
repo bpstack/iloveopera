@@ -37,7 +37,13 @@ class ZoomControls extends ConsumerWidget {
     ref.read(zoomFactorProvider.notifier).set(factor);
     final fit = _fitScale(controller, page);
     if (fit == null || fit <= 0) return;
-    await controller.setZoom(controller.centerPosition, fit * factor);
+    // Instant (no animation): rapid clicks must not queue 200ms tweens, or the
+    // last presses appear to "react late" while earlier ones finish animating.
+    await controller.setZoom(
+      controller.centerPosition,
+      fit * factor,
+      duration: Duration.zero,
+    );
   }
 
   @override
