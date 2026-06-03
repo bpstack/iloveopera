@@ -340,10 +340,23 @@ iloveopera/
 | `file_selector` | **1.1.0** | Abrir y elegir destino de guardado. **Oficial (flutter.dev)**, Android+Windows+Linux. | BSD-3 |
 | `path_provider` | **2.1.5** | Directorios estándar de la app. Oficial. | BSD-3 |
 | `path` | ^1.9 | Manipular rutas de forma portable. Oficial. | BSD-3 |
-| `freezed_annotation` | **3.1.0** | Anotaciones para clases inmutables/`sealed`. Empareja con freezed 3. | MIT |
-| `json_annotation` | **4.12.0** | Anotaciones para (de)serializar anotaciones a JSON. | BSD-3 |
-| `uuid` | **4.5.3** | IDs únicos por anotación. | MIT |
+| `freezed_annotation` | **3.1.0** | Anotaciones para clases inmutables/`sealed`. Empareja con freezed 3. **Usado desde Fase 2.** | MIT |
+| `json_annotation` | **4.12.0** | Anotaciones para (de)serializar anotaciones a JSON. **Usado desde Fase 2.** | BSD-3 |
+| `uuid` | **4.5.3** | IDs únicos por anotación. **Usado desde Fase 2.** | MIT |
 | `flutter_colorpicker` | **1.1.0** | Selector de color. *UI, sustituible.* | MIT |
+
+#### Fuentes TTF del set curado (Fase 2)
+
+| Familia | TTF | Licencia | Origen |
+|---|---|---|---|
+| **Roboto** | `assets/fonts/Roboto-Regular.ttf` | Apache-2.0 | [googlefonts/roboto](https://github.com/googlefonts/roboto) |
+| **Open Sans** | `assets/fonts/OpenSans-Regular.ttf` | OFL-1.1 | [googlefonts/opensans](https://github.com/googlefonts/opensans) |
+| **Lato** | `assets/fonts/Lato-Regular.ttf` | OFL-1.1 | [google/fonts `ofl/lato`](https://github.com/google/fonts/tree/main/ofl/lato) |
+| **Merriweather** | `assets/fonts/Merriweather-Regular.ttf` | OFL-1.1 | [SorkinType/Merriweather](https://github.com/SorkinType/Merriweather) |
+| **Source Code Pro** | `assets/fonts/SourceCodePro-Regular.ttf` | OFL-1.1 | [adobe-fonts/source-code-pro](https://github.com/adobe-fonts/source-code-pro) |
+
+> Todas las fuentes permiten **embebido y redistribución** (requisito ROADMAP §2.5).
+> Solo se incluye Regular en Fase 2; las Bold/Italic se añadirán si la UI lo requiere.
 
 ### 4.2 Dependencias de desarrollo (dev_dependencies)
 
@@ -475,13 +488,13 @@ Verificado contra la documentación de pub.dev (2026-06-03):
 - **DoD:** abrir un PDF real y navegarlo con zoom en desktop y Android.
 
 ### Fase 2 — Capa de anotación: texto y "tipp-ex"
-- [ ] Modelo de anotaciones (TextAnno, RectAnno) serializable
-- [ ] Añadir texto libre sobre una página
-- [ ] Elegir familia, tamaño y color de fuente
-- [ ] Mover textos ya añadidos
-- [ ] Eliminar textos
-- [ ] Rectángulo opaco ("tipp-ex") para ocultar/escribir encima
-- [ ] Coordenadas relativas a la página (fieles al zoom)
+- [x] Modelo de anotaciones (TextAnno, RectAnno) serializable
+- [x] Añadir texto libre sobre una página
+- [x] Elegir familia, tamaño y color de fuente
+- [x] Mover textos ya añadidos
+- [x] Eliminar textos
+- [x] Rectángulo opaco ("tipp-ex") para ocultar/escribir encima
+- [x] Coordenadas relativas a la página (fieles al zoom)
 - **DoD:** tapar texto del PDF y escribir encima con fuente configurable.
 
 ### Fase 3 — Anotación avanzada + historial
