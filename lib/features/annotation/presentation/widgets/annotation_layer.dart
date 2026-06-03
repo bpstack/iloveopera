@@ -35,11 +35,6 @@ class AnnotationLayer extends ConsumerWidget {
         final double scale =
             constraints.maxWidth <= 0 ? 1.0 : constraints.maxWidth / pageWidth;
 
-        final isAddMode = tool == AnnotationTool.addText ||
-            tool == AnnotationTool.addRect ||
-            tool == AnnotationTool.addHighlight ||
-            tool == AnnotationTool.addStroke;
-
         // Cursor hint (desktop only): changes when a placement tool is active.
         final cursor = switch (tool) {
           AnnotationTool.addText => SystemMouseCursors.text,
@@ -55,9 +50,10 @@ class AnnotationLayer extends ConsumerWidget {
           child: Stack(
             clipBehavior: Clip.none,
             children: <Widget>[
-              // Subtle page tint + opaque tap capture for placement tools.
-              // HitTestBehavior.opaque is critical: it blocks pdfrx's parent
-              // gesture recognizers from competing in the gesture arena.
+              // Tap capture layer for point-placement tools.
+              // HitTestBehavior.opaque blocks pdfrx's parent gesture recognizers
+              // from entering the gesture arena — otherwise pdfrx wins and the
+              // tap never reaches _onBackgroundTap.
               if (tool == AnnotationTool.addText ||
                   tool == AnnotationTool.addRect ||
                   tool == AnnotationTool.addHighlight)
@@ -66,46 +62,43 @@ class AnnotationLayer extends ConsumerWidget {
                     behavior: HitTestBehavior.opaque,
                     onTapUp: (details) =>
                         _onBackgroundTap(context, ref, details.localPosition, scale),
-                    child: isAddMode
-                        ? DecoratedBox(
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                color: Colors.indigoAccent.withValues(alpha: 0.5),
-                                width: 2,
-                              ),
-                            ),
-                          )
-                        : const SizedBox.expand(),
+                    child: const SizedBox.expand(),
                   ),
                 ),
 
               // Existing annotations
               for (final a in annotations)
-                Positioned(
-                  left: a.rect.x * scale,
-                  top: a.rect.y * scale,
-                  width: a.rect.width * scale,
-                  height: a.rect.height * scale,
-                  child: _AnnotationWidget(
-                    key: ValueKey(a.id),
-                    annotation: a,
-                    scale: scale,
-                    isSelected: a.id == selectedId,
+                // TextAnnotation auto-sizes to its content; all others use the
+                // explicit bounding rect stored in the domain entity.
+                if (a is TextAnnotation)
+                  Positioned(
+                    left: a.rect.x * scale,
+                    top: a.rect.y * scale,
+                    child: _AnnotationWidget(
+                      key: ValueKey(a.id),
+                      annotation: a,
+                      scale: scale,
+                      isSelected: a.id == selectedId,
+                    ),
+                  )
+                else
+                  Positioned(
+                    left: a.rect.x * scale,
+                    top: a.rect.y * scale,
+                    width: a.rect.width * scale,
+                    height: a.rect.height * scale,
+                    child: _AnnotationWidget(
+                      key: ValueKey(a.id),
+                      annotation: a,
+                      scale: scale,
+                      isSelected: a.id == selectedId,
+                    ),
                   ),
-                ),
 
               // Live stroke drawing layer — on top of everything
               if (tool == AnnotationTool.addStroke)
                 Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: Colors.indigoAccent.withValues(alpha: 0.5),
-                        width: 2,
-                      ),
-                    ),
-                    child: _StrokeDrawingLayer(page: page, scale: scale),
-                  ),
+                  child: _StrokeDrawingLayer(page: page, scale: scale),
                 ),
             ],
           ),
@@ -128,10 +121,14 @@ class AnnotationLayer extends ConsumerWidget {
 
     final double xPoints = localPosition.dx / scale;
     final double yPoints = localPosition.dy / scale;
-    const double defaultW = 200;
-    const double defaultH = 50;
-    final double clampedX = xPoints.clamp(0, page.width - defaultW);
-    final double clampedY = yPoints.clamp(0, page.height - defaultH);
+    // Rect/highlight use an explicit default size; text is auto-sized so
+    // we only clamp its position to stay inside the page.
+    const double defaultRectW = 150;
+    const double defaultRectH = 40;
+    final double clampedX = xPoints.clamp(0, page.width.toDouble());
+    final double clampedY = yPoints.clamp(0, page.height.toDouble());
+    final double clampedRectX = xPoints.clamp(0, page.width - defaultRectW);
+    final double clampedRectY = yPoints.clamp(0, page.height - defaultRectH);
     final id = 'a-${DateTime.now().microsecondsSinceEpoch}';
 
     if (tool == AnnotationTool.addText) {
@@ -139,10 +136,12 @@ class AnnotationLayer extends ConsumerWidget {
       ref.read(annotationToolProvider.notifier).set(AnnotationTool.select);
       if (text == null || text.trim().isEmpty) return;
       final style = ref.read(textStyleProvider);
+      // width:0/height:0 → Positioned in AnnotationLayer omits size constraints,
+      // so _TextAnnotationVisual sizes itself via IntrinsicWidth/Height.
       ref.read(annotationsProvider.notifier).addLocal(Annotation.text(
             id: id,
             pageNumber: page.pageNumber,
-            rect: PageRect(x: clampedX, y: clampedY, width: defaultW, height: defaultH),
+            rect: PageRect(x: clampedX, y: clampedY, width: 0, height: 0),
             text: text.trim(),
             fontFamily: style.fontFamily,
             fontSize: style.fontSize,
@@ -154,7 +153,7 @@ class AnnotationLayer extends ConsumerWidget {
       ref.read(annotationsProvider.notifier).addLocal(Annotation.rect(
             id: id,
             pageNumber: page.pageNumber,
-            rect: PageRect(x: clampedX, y: clampedY, width: defaultW, height: defaultH),
+            rect: PageRect(x: clampedRectX, y: clampedRectY, width: defaultRectW, height: defaultRectH),
             colorArgb: style.colorArgb,
             opacity: style.opacity,
           ));
@@ -165,7 +164,7 @@ class AnnotationLayer extends ConsumerWidget {
       ref.read(annotationsProvider.notifier).addLocal(Annotation.highlight(
             id: id,
             pageNumber: page.pageNumber,
-            rect: PageRect(x: clampedX, y: clampedY, width: defaultW, height: defaultH),
+            rect: PageRect(x: clampedRectX, y: clampedRectY, width: defaultRectW, height: defaultRectH),
             colorArgb: style.colorArgb,
             opacity: style.opacity,
           ));
@@ -455,23 +454,25 @@ class _TextAnnotationVisual extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.001),
-        border: isSelected
-            ? Border.all(color: Colors.indigoAccent, width: 1.5)
-            : null,
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
-      child: Align(
-        alignment: Alignment.topLeft,
-        child: Text(
-          text,
-          style: TextStyle(
-            fontFamily: fontFamily,
-            fontSize: fontSize,
-            color: Color(colorArgb),
-            height: 1.0,
+    // IntrinsicWidth/Height let the widget shrink-wrap to fit the text
+    // (the parent Positioned sets only left/top, not width/height).
+    return IntrinsicWidth(
+      child: IntrinsicHeight(
+        child: Container(
+          decoration: BoxDecoration(
+            border: isSelected
+                ? Border.all(color: Colors.indigoAccent, width: 1.5)
+                : null,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+          child: Text(
+            text,
+            style: TextStyle(
+              fontFamily: fontFamily,
+              fontSize: fontSize,
+              color: Color(colorArgb),
+              height: 1.2,
+            ),
           ),
         ),
       ),
