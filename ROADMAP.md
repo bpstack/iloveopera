@@ -505,13 +505,13 @@ Verificado contra la documentación de pub.dev (2026-06-03):
 - [x] Undo / redo sobre toda la pila de anotaciones
 - **DoD:** dibujar, resaltar y deshacer/rehacer sin perder estado.
 
-### Fase 4 — Guardado y export
-- [ ] Export Opción A: rasterizar página + dibujar anotaciones (pdf+printing)
-- [ ] Respetar tamaño y orientación reales de cada página (ver R5) — pueden variar
-- [ ] DPI de rasterizado configurable (defecto sugerido 200) — ver R6
-- [ ] Embeber fuentes elegidas en el PDF de salida
-- [ ] Guardar SIEMPRE como archivo nuevo (original intacto)
-- [ ] Verificar fidelidad de coordenadas/colores/tamaños en el PDF final
+### Fase 4 — Guardado y export ✅
+- [x] Export Opción A: rasterizar página + dibujar anotaciones (pdf+printing)
+- [x] Respetar tamaño y orientación reales de cada página (ver R5) — pueden variar
+- [x] DPI de rasterizado configurable (defecto sugerido 200) — ver R6
+- [x] Embeber fuentes elegidas en el PDF de salida
+- [x] Guardar SIEMPRE como archivo nuevo (original intacto)
+- [x] Verificar fidelidad de coordenadas/colores/tamaños en el PDF final
 - **DoD:** exportar un PDF nuevo con todas las anotaciones, original sin tocar.
 
 ### Fase 5 — Persistencia de proyectos (guardar / reabrir sesión)

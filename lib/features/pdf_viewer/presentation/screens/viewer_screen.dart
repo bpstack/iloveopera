@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../annotation/presentation/providers/annotation_providers.dart';
 import '../../../annotation/presentation/widgets/font_picker.dart';
 import '../../../annotation/presentation/widgets/tool_panel.dart';
+import '../../../export/presentation/providers/export_providers.dart';
 import '../../domain/entities/pdf_failure.dart';
 import '../providers/pdf_session_provider.dart';
 import '../providers/viewer_state_providers.dart';
@@ -21,6 +22,23 @@ class ViewerScreen extends ConsumerStatefulWidget {
 
 class _ViewerScreenState extends ConsumerState<ViewerScreen> {
   bool _opening = false;
+
+  Future<void> _exportPdf() async {
+    await ref.read(exportProvider.notifier).exportPdf();
+    if (!mounted) return;
+    ref.read(exportProvider).when(
+      data: (_) => ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('PDF exportado correctamente.'),
+          duration: Duration(seconds: 3),
+        ),
+      ),
+      error: (e, _) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al exportar: $e')),
+      ),
+      loading: () {},
+    );
+  }
 
   Future<void> _openPdf() async {
     if (_opening) return;
@@ -62,6 +80,8 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
     final session = ref.watch(pdfSessionProvider);
     final hasDocument = session != null;
     final tool = ref.watch(annotationToolProvider);
+    final exportState = ref.watch(exportProvider);
+    final isExporting = exportState.isLoading;
 
     return Scaffold(
       appBar: AppBar(
@@ -73,6 +93,27 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
             ZoomControls(),
             const SizedBox(width: 8),
           ],
+          if (hasDocument)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor:
+                      Theme.of(context).colorScheme.secondaryContainer,
+                  foregroundColor:
+                      Theme.of(context).colorScheme.onSecondaryContainer,
+                ),
+                onPressed: isExporting ? null : _exportPdf,
+                icon: isExporting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.download),
+                label: const Text('Exportar PDF'),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: FilledButton.icon(
