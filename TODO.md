@@ -117,43 +117,44 @@
 ## SESIÓN 3 — Anotación avanzada: dibujo, resaltado, historial
 
 ### 3.1 Dibujo a mano alzada
-- [ ] 🖥️ Trazo con ratón fluido, sigue el cursor
-- [ ] 📱 Trazo con dedo fluido, sigue el dedo
-- [ ] 🖥️📱 Color y grosor configurables en vivo
-- [ ] 🖥️📱 Trazo queda fiel al zoom y se exporta bien
-- [ ] 🐞 📱 Confirmar que dibujar no entra en conflicto con pan/zoom de pdfrx
+- [x] 🖥️ Trazo con ratón fluido, sigue el cursor
+- [x] 📱 Trazo con dedo fluido, sigue el dedo
+- [x] 🖥️📱 Color y grosor configurables en vivo
+- [x] 🖥️📱 Trazo queda fiel al zoom y se exporta bien
+- [x] 🐞 📱 Confirmar que dibujar no entra en conflicto con pan/zoom de pdfrx
 
 ### 3.2 Resaltado
-- [ ] 🖥️📱 Crear zona resaltada semitransparente
-- [ ] 🖥️📱 Color/opacidad configurables
-- [ ] 🖥️📱 Mover/redimensionar/eliminar
+- [x] 🖥️📱 Crear zona resaltada semitransparente
+- [x] 🖥️📱 Color/opacidad configurables
+- [x] 🖥️📱 Mover/redimensionar/eliminar
 
 ### 3.3 Undo / Redo
-- [ ] 🖥️ Ctrl+Z / Ctrl+Y funcionan
-- [ ] 🖥️📱 Botones undo/redo se habilitan/deshabilitan correctamente
-- [ ] 🖥️📱 Undo/redo cubre añadir, mover, redimensionar, borrar, estilo
-- [ ] 🖥️📱 Estado consistente tras muchas operaciones
+- [x] 🖥️ Ctrl+Z / Ctrl+Y funcionan
+- [x] 🖥️📱 Botones undo/redo se habilitan/deshabilitan correctamente
+- [x] 🖥️📱 Undo/redo cubre añadir, mover, redimensionar, borrar, estilo
+- [x] 🖥️📱 Estado consistente tras muchas operaciones
 
 ---
 
 ## SESIÓN 4 — Export y persistencia (lo que el usuario "se lleva")
 
 ### 4.1 Exportar a PDF nuevo
-- [ ] 🖥️ Exportar → elegir destino → PDF nuevo con todas las anotaciones
-- [ ] 📱 Exportar → guardar/compartir → PDF nuevo correcto
-- [ ] 🖥️📱 Original NUNCA modificado
-- [ ] 🖥️📱 Fidelidad: posición/color/tamaño/fuente igual que en pantalla (R5/R8)
-- [ ] 🖥️📱 Tamaño/orientación de cada página respetados (R5)
-- [ ] 🖥️📱 Calidad de rasterizado aceptable (DPI 200) — no borroso (R6)
-- [ ] 🖥️📱 Feedback de progreso/éxito/error claro
+- [x] 🖥️ Exportar → elegir destino → PDF nuevo con todas las anotaciones
+- [x] 📱 Exportar → guardar/compartir → PDF nuevo correcto
+- [x] 🖥️📱 Original NUNCA modificado
+- [x] 🖥️📱 Fidelidad: posición/color/tamaño/fuente igual que en pantalla (R5/R8)
+- [x] 🖥️📱 Tamaño/orientación de cada página respetados (R5)
+- [x] 🖥️📱 Calidad de rasterizado aceptable (DPI 200) — no borroso (R6)
+- [x] 🖥️📱 Feedback de progreso/éxito/error claro
 
 ### 4.2 Guardar / reabrir proyecto
-- [ ] 🖥️ Guardar proyecto (copia PDF + JSON anotaciones)
-- [ ] 📱 Guardar proyecto desde menú 3 puntos ✅(fix: menú ya no se recorta)
-- [ ] 🖥️📱 Pantalla "Proyectos guardados": listar, abrir, borrar
-- [ ] 🖥️📱 Reabrir restaura página, zoom y todas las anotaciones
-- [ ] 🖥️📱 Cerrar app y reabrir proyecto → seguir donde se dejó
-- [ ] 🖥️📱 "Actualizar proyecto" vs "Guardar nuevo" se comporta bien
+- [x] 🖥️ Guardar proyecto (copia PDF + JSON anotaciones)
+- [~] 📱 Guardar proyecto desde menú: el menú ya no se recorta, PERO el guardado
+      FALLA si el PDF se abrió por SAF (sin ruta de sistema) → bug B7 pendiente
+- [x] 🖥️📱 Pantalla "Proyectos guardados": listar, abrir, borrar
+- [x] 🖥️📱 Reabrir restaura página, zoom y todas las anotaciones
+- [x] 🖥️📱 Cerrar app y reabrir proyecto → seguir donde se dejó
+- [x] 🖥️📱 "Actualizar proyecto" vs "Guardar nuevo" se comporta bien
 
 ---
 
@@ -195,8 +196,8 @@
 | B4 | FAB propiedades podría tapar barra inferior | 📱 | 🟢 verificado |
 | B5 | Tap en vacío no deseleccionaba (modo seleccionar) | 🖥️📱 | 🟢 corregido (capa de captura en select) |
 | B6 | Handle de resize no seguía al mover | 🖥️📱 | 🟢 corregido (drag elevado al padre) |
-| B7 | Exportar en móvil no funcionaba (scoped storage) | 📱 | 🟢 corregido (Printing.sharePdf — compartir en vez de guardar a ruta) |
-| B8 | Guardar PROYECTO en móvil falla (PDF por SAF sin ruta) | 📱 | 🔴 pendiente — requiere guardar bytes del PDF, no la ruta |
+| — | Exportar en móvil no funcionaba (scoped storage) | 📱 | 🟢 corregido (Printing.sharePdf — compartir en vez de guardar a ruta) |
+| B7 | Guardar PROYECTO en móvil falla (PDF por SAF sin ruta) | 📱 | 🔴 pendiente — requiere guardar bytes del PDF, no la ruta |
 
 ---
 
