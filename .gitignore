@@ -1,3 +1,6 @@
+# Certificado de firma (clave privada — no subir al repo)
+windows/iloveopera.pfx
+
 # Miscellaneous
 *.class
 *.log

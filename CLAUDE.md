@@ -36,6 +36,15 @@ Ver checklist en `ROADMAP.md` §Fases.
 - Identificadores en inglés, textos UI en español.
 - Seguir solo doc oficial de Riverpod 3.x y freezed 3.x (los ejemplos 2.x rompen).
 
+## Secretos — NUNCA commitear
+
+- ❌ **Nunca** poner `certificate_password` (ni ninguna contraseña/clave) en
+  `pubspec.yaml` ni en ningún archivo versionado. La firma MSIX recibe la
+  contraseña por CLI: `dart run msix:create --certificate-password <PASSWORD>`.
+- `windows/iloveopera.pfx` (clave privada) está en `.gitignore` — mantenerlo así.
+- Antes de cualquier commit, revisar que el diff no incluya contraseñas, tokens
+  ni claves privadas.
+
 ## Plataformas
 
 Android · Windows · Linux. iOS / macOS / Web: fuera de alcance.

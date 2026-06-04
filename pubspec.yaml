@@ -58,9 +58,24 @@ dev_dependencies:
   freezed: ^3.2.5
   build_runner: ^2.15.0
   json_serializable: ^6.14.0
+  msix: ^3.16.13
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
+
+msix_config:
+  display_name: iloveopera
+  publisher_display_name: iloveopera
+  publisher: CN=iloveopera
+  identity_name: com.iloveopera.app
+  msix_version: 1.0.0.0
+  description: Editor local de PDFs — anota, dibuja y resalta sin servidor.
+  languages: es
+  capabilities: runFullTrust
+  sign_msix: true
+  certificate_path: windows\iloveopera.pfx
+  # NO poner certificate_password aqui (secreto). Pasarla al empaquetar:
+  #   dart run msix:create --certificate-password <PASSWORD>
 
 # The following section is specific to Flutter packages.
 flutter:
