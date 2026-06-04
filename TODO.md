@@ -195,6 +195,8 @@
 | B4 | FAB propiedades podría tapar barra inferior | 📱 | 🟢 verificado |
 | B5 | Tap en vacío no deseleccionaba (modo seleccionar) | 🖥️📱 | 🟢 corregido (capa de captura en select) |
 | B6 | Handle de resize no seguía al mover | 🖥️📱 | 🟢 corregido (drag elevado al padre) |
+| B7 | Exportar en móvil no funcionaba (scoped storage) | 📱 | 🟢 corregido (Printing.sharePdf — compartir en vez de guardar a ruta) |
+| B8 | Guardar PROYECTO en móvil falla (PDF por SAF sin ruta) | 📱 | 🔴 pendiente — requiere guardar bytes del PDF, no la ruta |
 
 ---
 
