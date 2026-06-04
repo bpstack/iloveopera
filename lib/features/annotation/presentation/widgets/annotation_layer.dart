@@ -37,6 +37,13 @@ class _AnnotationLayerState extends ConsumerState<AnnotationLayer> {
   double _resizeBaseW = 0;
   double _resizeBaseH = 0;
 
+  // Active move (drag) state — lifted here (not local to the annotation widget)
+  // so the resize handle, which is a sibling Positioned, follows the annotation
+  // live during a drag instead of snapping to the new corner only on release.
+  String? _movingId;
+  double _moveDx = 0;
+  double _moveDy = 0;
+
   // One GlobalKey per annotation: lets us read the actual rendered size
   // (from the previous frame) to position the resize handle correctly even
   // when the annotation is auto-sized (e.g. text with rect.width == 0).
@@ -75,13 +82,35 @@ class _AnnotationLayerState extends ConsumerState<AnnotationLayer> {
     setState(() { _resizeDx += dx; _resizeDy += dy; });
   }
 
+  void _onMoveStart(String id) {
+    ref.read(selectedAnnotationProvider.notifier).set(id);
+    setState(() { _movingId = id; _moveDx = 0; _moveDy = 0; });
+  }
+
+  void _onMoveUpdate(double dx, double dy) {
+    setState(() { _moveDx += dx; _moveDy += dy; });
+  }
+
+  void _onMoveEnd(String id, double scale) {
+    final a = ref.read(annotationsProvider).where((a) => a.id == id).firstOrNull;
+    if (a != null && (_moveDx != 0 || _moveDy != 0)) {
+      ref.read(annotationsProvider.notifier).moveLocal(
+            id,
+            a.rect.copyWith(
+              x: a.rect.x + _moveDx / scale,
+              y: a.rect.y + _moveDy / scale,
+            ),
+          );
+    }
+    setState(() { _movingId = null; _moveDx = 0; _moveDy = 0; });
+  }
+
   void _onResizeEnd(String id, double scale) {
     final a = ref.read(annotationsProvider).where((a) => a.id == id).firstOrNull;
     if (a != null) {
+      // Text resizes both dims like rect: once resized it becomes a fixed box.
       final newW = (_resizeBaseW + _resizeDx / scale).clamp(20.0, double.infinity);
-      final newH = a is TextAnnotation
-          ? 0.0
-          : (_resizeBaseH + _resizeDy / scale).clamp(10.0, double.infinity);
+      final newH = (_resizeBaseH + _resizeDy / scale).clamp(10.0, double.infinity);
       ref.read(annotationsProvider.notifier).moveLocal(
             id, a.rect.copyWith(width: newW, height: newH));
     }
@@ -109,7 +138,17 @@ class _AnnotationLayerState extends ConsumerState<AnnotationLayer> {
           _ => MouseCursor.defer,
         };
 
-        return MouseRegion(
+        // pdfrx composes page overlays as siblings ON TOP of its InteractiveViewer
+        // (not inside it), and a Stack hit-test stops at the first hit child.
+        // So whenever the overlay is hittable, pan/zoom can't reach pdfrx over the
+        // page. In the pan/hand tool we make the whole overlay pointer-transparent
+        // (IgnorePointer) so pdfrx receives pan AND pinch-zoom over the content;
+        // annotation tools keep the overlay active (then pan/zoom needs the hand tool).
+        final isPanTool = tool == AnnotationTool.pan;
+
+        return IgnorePointer(
+          ignoring: isPanTool,
+          child: MouseRegion(
           cursor: cursor,
           child: Stack(
             clipBehavior: Clip.none,
@@ -144,6 +183,7 @@ class _AnnotationLayerState extends ConsumerState<AnnotationLayer> {
                 ),
             ],
           ),
+          ),
         );
       },
     );
@@ -165,18 +205,21 @@ class _AnnotationLayerState extends ConsumerState<AnnotationLayer> {
     if (isResizing) {
       // Use the captured base (PDF points) + live delta → convert to pixels.
       effWpx = (_resizeBaseW * scale + _resizeDx).clamp(20.0, double.infinity);
-      effHpx = a is TextAnnotation
-          ? (rendered?.height ?? _resizeBaseH * scale) // text height stays auto
-          : (_resizeBaseH * scale + _resizeDy).clamp(10.0, double.infinity);
+      effHpx = (_resizeBaseH * scale + _resizeDy).clamp(10.0, double.infinity);
     } else {
-      // Use actual rendered size when available (even for auto-size text).
-      effWpx = rendered?.width ?? (a.rect.width > 0 ? a.rect.width * scale : 80.0);
-      effHpx = rendered?.height ?? (a.rect.height > 0 ? a.rect.height * scale : 20.0);
+      // Prefer explicit rect dims; fall back to rendered size only for an
+      // auto-sized text box that has not been resized yet (width/height == 0).
+      effWpx = a.rect.width > 0 ? a.rect.width * scale : (rendered?.width ?? 80.0);
+      effHpx = a.rect.height > 0 ? a.rect.height * scale : (rendered?.height ?? 20.0);
     }
 
+    // Follow the annotation live while it is being dragged.
+    final moveOffX = _movingId == a.id ? _moveDx : 0.0;
+    final moveOffY = _movingId == a.id ? _moveDy : 0.0;
+
     // Centre the 14×14 handle on the bottom-right corner.
-    final left = (a.rect.x * scale + effWpx - 7).clamp(0.0, double.infinity);
-    final top  = (a.rect.y * scale + effHpx - 7).clamp(0.0, double.infinity);
+    final left = (a.rect.x * scale + moveOffX + effWpx - 7).clamp(0.0, double.infinity);
+    final top  = (a.rect.y * scale + moveOffY + effHpx - 7).clamp(0.0, double.infinity);
 
     return Positioned(
       left: left,
@@ -207,12 +250,14 @@ class _AnnotationLayerState extends ConsumerState<AnnotationLayer> {
     double? displayH;
 
     if (a is TextAnnotation) {
-      // width: null (auto-size) until user resizes.
-      // During active resize, use the captured base + live delta.
+      // Auto-size (null) until the user resizes; afterwards it is a fixed box
+      // with explicit width AND height, exactly like a rect.
       displayW = isResizing
           ? (_resizeBaseW + _resizeDx / scale).clamp(20.0, double.infinity)
           : (a.rect.width > 0 ? a.rect.width : null);
-      displayH = null; // text height always auto
+      displayH = isResizing
+          ? (_resizeBaseH + _resizeDy / scale).clamp(10.0, double.infinity)
+          : (a.rect.height > 0 ? a.rect.height : null);
     } else {
       displayW = isResizing
           ? (_resizeBaseW + _resizeDx / scale).clamp(10.0, double.infinity)
@@ -222,9 +267,12 @@ class _AnnotationLayerState extends ConsumerState<AnnotationLayer> {
           : a.rect.height;
     }
 
+    final moveOffX = _movingId == a.id ? _moveDx : 0.0;
+    final moveOffY = _movingId == a.id ? _moveDy : 0.0;
+
     return Positioned(
-      left: a.rect.x * scale,
-      top: a.rect.y * scale,
+      left: a.rect.x * scale + moveOffX,
+      top: a.rect.y * scale + moveOffY,
       width: displayW != null ? displayW * scale : null,
       height: displayH != null ? displayH * scale : null,
       child: _AnnotationWidget(
@@ -233,8 +281,9 @@ class _AnnotationLayerState extends ConsumerState<AnnotationLayer> {
         scale: scale,
         isSelected: a.id == selectedId,
         autoSizeText: a is TextAnnotation && displayW == null,
-        onResizeUpdate: _onResizeUpdate,
-        onResizeEnd: _onResizeEnd,
+        onMoveStart: _onMoveStart,
+        onMoveUpdate: _onMoveUpdate,
+        onMoveEnd: _onMoveEnd,
       ),
     );
   }
@@ -453,17 +502,19 @@ class _StrokeDrawingLayerState extends ConsumerState<_StrokeDrawingLayer> {
 
 /// A single annotation, positioned and interactive.
 ///
-/// Dragging uses LOCAL state (a temporary screen-space offset) committed to the
-/// store only on pan end — avoids rebuilding the whole overlay per pointer move.
-class _AnnotationWidget extends ConsumerStatefulWidget {
+/// Dragging is reported to the parent ([_AnnotationLayerState]) via callbacks;
+/// the parent holds the live drag offset and applies it to both this widget's
+/// [Positioned] and the sibling resize handle, so they move together.
+class _AnnotationWidget extends ConsumerWidget {
   const _AnnotationWidget({
     super.key,
     required this.annotation,
     required this.scale,
     required this.isSelected,
     required this.autoSizeText,
-    required this.onResizeUpdate,
-    required this.onResizeEnd,
+    required this.onMoveStart,
+    required this.onMoveUpdate,
+    required this.onMoveEnd,
   });
 
   final Annotation annotation;
@@ -471,19 +522,12 @@ class _AnnotationWidget extends ConsumerStatefulWidget {
   final bool isSelected;
   /// True when this TextAnnotation has no explicit width and should auto-size.
   final bool autoSizeText;
-  // Kept in signature for potential future use; currently handled in parent.
-  final void Function(String id, double dx, double dy) onResizeUpdate;
-  final void Function(String id, double scale) onResizeEnd;
+  final void Function(String id) onMoveStart;
+  final void Function(double dx, double dy) onMoveUpdate;
+  final void Function(String id, double scale) onMoveEnd;
 
-  @override
-  ConsumerState<_AnnotationWidget> createState() => _AnnotationWidgetState();
-}
-
-class _AnnotationWidgetState extends ConsumerState<_AnnotationWidget> {
-  Offset _drag = Offset.zero;
-
-  Future<void> _editText() async {
-    final a = widget.annotation;
+  Future<void> _editText(BuildContext context, WidgetRef ref) async {
+    final a = annotation;
     if (a is! TextAnnotation) return;
     final text = await showAnnotationTextDialog(context, initialText: a.text);
     if (text == null) return;
@@ -495,10 +539,9 @@ class _AnnotationWidgetState extends ConsumerState<_AnnotationWidget> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final tool = ref.watch(annotationToolProvider);
-    final a = widget.annotation;
-    final scale = widget.scale;
+    final a = annotation;
     final canDrag = tool == AnnotationTool.select;
 
     final Widget visual = switch (a) {
@@ -508,13 +551,13 @@ class _AnnotationWidgetState extends ConsumerState<_AnnotationWidget> {
           fontFamily: fontFamily,
           fontSize: fontSize * scale,
           colorArgb: colorArgb,
-          isSelected: widget.isSelected,
-          autoSize: widget.autoSizeText,
+          isSelected: isSelected,
+          autoSize: autoSizeText,
         ),
       RectAnnotation(:final colorArgb, :final opacity) => _RectAnnotationVisual(
           colorArgb: colorArgb,
           opacity: opacity,
-          isSelected: widget.isSelected,
+          isSelected: isSelected,
         ),
       StrokeAnnotation(:final points, :final colorArgb, :final strokeWidth, :final rect) =>
         CustomPaint(
@@ -526,7 +569,7 @@ class _AnnotationWidgetState extends ConsumerState<_AnnotationWidget> {
             colorArgb: colorArgb,
             strokeWidth: strokeWidth,
           ),
-          child: widget.isSelected
+          child: isSelected
               ? Container(
                   decoration: BoxDecoration(
                     border: Border.all(color: Colors.indigoAccent, width: 1.5),
@@ -537,35 +580,21 @@ class _AnnotationWidgetState extends ConsumerState<_AnnotationWidget> {
       HighlightAnnotation(:final colorArgb, :final opacity) => _RectAnnotationVisual(
           colorArgb: colorArgb,
           opacity: opacity,
-          isSelected: widget.isSelected,
+          isSelected: isSelected,
         ),
     };
 
-    return Transform.translate(
-      offset: _drag,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => ref.read(selectedAnnotationProvider.notifier).set(a.id),
-        onDoubleTap: a is TextAnnotation ? _editText : null,
-        onPanStart: canDrag
-            ? (_) => ref.read(selectedAnnotationProvider.notifier).set(a.id)
-            : null,
-        onPanUpdate: canDrag ? (d) => setState(() => _drag += d.delta) : null,
-        onPanEnd: canDrag
-            ? (_) {
-                final r = a.rect;
-                ref.read(annotationsProvider.notifier).moveLocal(
-                      a.id,
-                      r.copyWith(
-                        x: r.x + _drag.dx / scale,
-                        y: r.y + _drag.dy / scale,
-                      ),
-                    );
-                setState(() => _drag = Offset.zero);
-              }
-            : null,
-        child: visual,
-      ),
+    // In pan mode let touches fall through to pdfrx's scroll/pinch handler.
+    final isPan = tool == AnnotationTool.pan;
+
+    return GestureDetector(
+      behavior: isPan ? HitTestBehavior.translucent : HitTestBehavior.opaque,
+      onTap: isPan ? null : () => ref.read(selectedAnnotationProvider.notifier).set(a.id),
+      onDoubleTap: isPan || a is! TextAnnotation ? null : () => _editText(context, ref),
+      onPanStart: canDrag ? (_) => onMoveStart(a.id) : null,
+      onPanUpdate: canDrag ? (d) => onMoveUpdate(d.delta.dx, d.delta.dy) : null,
+      onPanEnd: canDrag ? (_) => onMoveEnd(a.id, scale) : null,
+      child: visual,
     );
   }
 }
@@ -616,7 +645,8 @@ class _TextAnnotationVisual extends StatelessWidget {
     if (autoSize) {
       return IntrinsicWidth(child: IntrinsicHeight(child: inner));
     }
-    return inner;
+    // Fixed box (after resize): clip overflowing text to the box bounds.
+    return ClipRect(child: inner);
   }
 }
 
