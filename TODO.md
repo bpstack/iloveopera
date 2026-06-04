@@ -107,7 +107,9 @@
 
 ### 2.7 Eliminar / seleccionar
 - [ ] 🖥️📱 Botón eliminar borra la anotación seleccionada
-- [ ] 🖥️📱 Tap/click en zona vacía deselecciona
+- [ ] 🖥️📱 Tap/click en zona vacía deselecciona ✅(fix: la capa de captura de
+      tap de fondo ahora también se monta en modo seleccionar; antes la rama
+      de deselect era código muerto y no respondía)
 - [ ] 🖥️📱 Selección visible (borde) clara
 
 ---

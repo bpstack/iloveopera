@@ -153,10 +153,14 @@ class _AnnotationLayerState extends ConsumerState<AnnotationLayer> {
           child: Stack(
             clipBehavior: Clip.none,
             children: <Widget>[
-              // Tap capture layer for point-placement tools.
+              // Background tap layer: places new annotations for the add tools,
+              // and deselects (tap on empty space) for the select tool. Sits at
+              // the bottom of the Stack, so taps on existing annotations hit
+              // their own (opaque) GestureDetector first.
               if (tool == AnnotationTool.addText ||
                   tool == AnnotationTool.addRect ||
-                  tool == AnnotationTool.addHighlight)
+                  tool == AnnotationTool.addHighlight ||
+                  tool == AnnotationTool.select)
                 Positioned.fill(
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
