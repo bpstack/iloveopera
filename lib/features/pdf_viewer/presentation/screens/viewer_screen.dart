@@ -9,6 +9,7 @@ import '../../../project/presentation/providers/project_providers.dart';
 import '../../../project/presentation/screens/projects_screen.dart';
 import '../../domain/entities/pdf_failure.dart';
 import '../providers/pdf_session_provider.dart';
+import '../providers/viewer_controller_provider.dart';
 import '../providers/viewer_state_providers.dart';
 import '../widgets/page_navigation_bar.dart';
 import '../widgets/pdf_viewer_widget.dart';
@@ -107,101 +108,232 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
     final hasDocument = session != null;
     final exportState = ref.watch(exportProvider);
     final isExporting = exportState.isLoading;
+    final isWide = MediaQuery.sizeOf(context).width > 700;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(hasDocument ? session.sourceName : 'iloveopera'),
-        actions: [
-          if (hasDocument) ...[
-            PageNavigationBar(totalPages: session.pageCount),
-            const SizedBox(width: 8),
-            ZoomControls(),
-            const SizedBox(width: 8),
-          ],
-          if (hasDocument) ...[
-            IconButton(
-              tooltip: 'Proyectos guardados',
-              icon: const Icon(Icons.folder_special_outlined),
-              onPressed: _openProjectsScreen,
-            ),
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  backgroundColor:
-                      Theme.of(context).colorScheme.tertiaryContainer,
-                  foregroundColor:
-                      Theme.of(context).colorScheme.onTertiaryContainer,
-                ),
-                onPressed: _saveProject,
-                icon: const Icon(Icons.save_outlined),
-                label: Text(session.projectId != null
-                    ? 'Actualizar proyecto'
-                    : 'Guardar proyecto'),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  backgroundColor:
-                      Theme.of(context).colorScheme.secondaryContainer,
-                  foregroundColor:
-                      Theme.of(context).colorScheme.onSecondaryContainer,
-                ),
-                onPressed: isExporting ? null : _exportPdf,
-                icon: isExporting
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.download),
-                label: const Text('Exportar PDF'),
-              ),
-            ),
-          ],
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: FilledButton.icon(
-              onPressed: _opening ? null : _openPdf,
-              icon: _opening
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.folder_open),
-              label: const Text('Abrir PDF'),
-            ),
-          ),
-        ],
-      ),
-      // Responsive layout:
-      //   ≥ 700 dp → side panel on the right.
-      //   < 700 dp → FAB (tune icon) opens a modal bottom sheet.
+      appBar: isWide
+          ? _buildWideAppBar(context, session, hasDocument, isExporting)
+          : _buildNarrowAppBar(context, session, hasDocument, isExporting),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final isWide = constraints.maxWidth > 700;
-          return Row(
+          final wide = constraints.maxWidth > 700;
+          final contentRow = Row(
             children: [
-              if (hasDocument) const ThumbnailRail(),
-              if (hasDocument) const ToolPanel(),
-              if (hasDocument) const VerticalDivider(width: 1),
+              if (hasDocument && wide) const ThumbnailRail(),
+              if (hasDocument && wide) const ToolPanel(),
+              if (hasDocument && wide) const VerticalDivider(width: 1),
               Expanded(
                 child: hasDocument
                     ? const PdfViewerWidget()
                     : _EmptyState(onOpen: _openPdf, busy: _opening),
               ),
-              if (hasDocument && isWide) const VerticalDivider(width: 1),
-              if (hasDocument && isWide) const PropertiesPanel(),
+              if (hasDocument && wide) const VerticalDivider(width: 1),
+              if (hasDocument && wide) const PropertiesPanel(),
             ],
           );
+
+          if (!wide && hasDocument) {
+            return Column(
+              children: [
+                ToolPanel(horizontal: true),
+                Expanded(child: contentRow),
+                _NarrowBottomBar(totalPages: session.pageCount),
+              ],
+            );
+          }
+          return contentRow;
         },
       ),
-      floatingActionButton: hasDocument
-          ? _PropertiesFab(isVisible: MediaQuery.sizeOf(context).width <= 700)
+      floatingActionButton: hasDocument && !isWide
+          ? _PropertiesFab(isVisible: true)
           : null,
+    );
+  }
+
+  PreferredSizeWidget _buildWideAppBar(
+    BuildContext context,
+    dynamic session,
+    bool hasDocument,
+    bool isExporting,
+  ) {
+    return AppBar(
+      title: Text(hasDocument ? session.sourceName : 'iloveopera'),
+      actions: [
+        if (hasDocument) ...[
+          PageNavigationBar(totalPages: session.pageCount),
+          const SizedBox(width: 8),
+          ZoomControls(),
+          const SizedBox(width: 8),
+          IconButton(
+            tooltip: 'Proyectos guardados',
+            icon: const Icon(Icons.folder_special_outlined),
+            onPressed: _openProjectsScreen,
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.tertiaryContainer,
+                foregroundColor: Theme.of(context).colorScheme.onTertiaryContainer,
+              ),
+              onPressed: _saveProject,
+              icon: const Icon(Icons.save_outlined),
+              label: Text(session.projectId != null ? 'Actualizar proyecto' : 'Guardar proyecto'),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+                foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
+              ),
+              onPressed: isExporting ? null : _exportPdf,
+              icon: isExporting
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.download),
+              label: const Text('Exportar PDF'),
+            ),
+          ),
+        ],
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: FilledButton.icon(
+            onPressed: _opening ? null : _openPdf,
+            icon: _opening
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.folder_open),
+            label: const Text('Abrir PDF'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  PreferredSizeWidget _buildNarrowAppBar(
+    BuildContext context,
+    dynamic session,
+    bool hasDocument,
+    bool isExporting,
+  ) {
+    return AppBar(
+      title: Text(
+        hasDocument ? session.sourceName : 'iloveopera',
+        overflow: TextOverflow.ellipsis,
+      ),
+      actions: [
+        IconButton(
+          tooltip: 'Abrir PDF',
+          icon: _opening
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.folder_open),
+          onPressed: _opening ? null : _openPdf,
+        ),
+        if (hasDocument)
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'save') _saveProject();
+              if (value == 'export') _exportPdf();
+              if (value == 'projects') _openProjectsScreen();
+            },
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'save',
+                child: ListTile(
+                  leading: const Icon(Icons.save_outlined),
+                  title: Text(session.projectId != null ? 'Actualizar proyecto' : 'Guardar proyecto'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem(
+                value: 'export',
+                enabled: !isExporting,
+                child: ListTile(
+                  leading: isExporting
+                      ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.download),
+                  title: const Text('Exportar PDF'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'projects',
+                child: ListTile(
+                  leading: Icon(Icons.folder_special_outlined),
+                  title: Text('Proyectos guardados'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+}
+
+/// Bottom bar for the narrow (mobile) layout: page navigation + zoom controls.
+/// Lives at the bottom so the app bar stays uncluttered and the save/export
+/// menu is never pushed off-screen. Zoom drives pdfrx's real scale via the
+/// shared controller, so it works with or without touch (and complements
+/// pinch-to-zoom). Horizontally scrollable to survive very narrow screens.
+class _NarrowBottomBar extends ConsumerWidget {
+  const _NarrowBottomBar({required this.totalPages});
+
+  final int totalPages;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.watch(viewerControllerProvider);
+    final zoom = ref.watch(currentZoomProvider);
+    final page = ref.watch(currentPageProvider);
+    final ready = controller != null && zoom > 0;
+    final scheme = Theme.of(context).colorScheme;
+
+    return Material(
+      color: scheme.surfaceContainerHighest,
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 48,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PageNavigationBar(totalPages: totalPages),
+                const VerticalDivider(width: 1, indent: 8, endIndent: 8),
+                IconButton(
+                  tooltip: 'Reducir',
+                  icon: const Icon(Icons.zoom_out),
+                  onPressed: !ready
+                      ? null
+                      : () => ZoomControls.zoomTo(
+                          controller, controller.currentZoom / ZoomControls.step),
+                ),
+                IconButton(
+                  tooltip: 'Aumentar',
+                  icon: const Icon(Icons.zoom_in),
+                  onPressed: !ready
+                      ? null
+                      : () => ZoomControls.zoomTo(
+                          controller, controller.currentZoom * ZoomControls.step),
+                ),
+                IconButton(
+                  tooltip: 'Ajustar a la página',
+                  icon: const Icon(Icons.fit_screen),
+                  onPressed: !ready
+                      ? null
+                      : () => controller.goTo(
+                          controller.calcMatrixForFit(
+                              pageNumber: page < 1 ? 1 : page),
+                          duration: Duration.zero,
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

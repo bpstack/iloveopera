@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../services/font_registry/font_registry.dart';
@@ -165,11 +166,16 @@ final highlightStyleProvider =
 // ---------------------------------------------------------------------------
 
 /// Tool currently active in the editor.
-enum AnnotationTool { select, addText, addRect, addStroke, addHighlight }
+/// [pan] enables PDF scroll/pinch-zoom (mobile default).
+enum AnnotationTool { pan, select, addText, addRect, addStroke, addHighlight }
 
 class AnnotationToolNotifier extends Notifier<AnnotationTool> {
   @override
-  AnnotationTool build() => AnnotationTool.select;
+  AnnotationTool build() {
+    final isMobile = defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
+    return isMobile ? AnnotationTool.pan : AnnotationTool.select;
+  }
 
   void set(AnnotationTool tool) => state = tool;
 }

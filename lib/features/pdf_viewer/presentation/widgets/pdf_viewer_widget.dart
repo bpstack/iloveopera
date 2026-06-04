@@ -73,11 +73,11 @@ class _PdfViewerWidgetState extends ConsumerState<PdfViewerWidget> {
     final hasSession = ref.watch(pdfSessionProvider) != null;
     if (!hasSession) return const SizedBox.shrink();
 
-    // panEnabled=false for all tools: when true, pdfrx's gesture recognizer
-    // wins the arena and swallows taps before they reach our overlay.
-    // Scroll wheel and scrollbars still work on desktop (Fase 6 covers mobile).
-    ref.watch(annotationToolProvider); // keep subscription for onKey rebuild
-    const panEnabled = false;
+    // panEnabled only when the pan tool is active: that tool adds no overlay
+    // gestures, so pdfrx can safely win the arena for scroll/pinch-zoom.
+    // For all annotation tools panEnabled stays false so taps reach the overlay.
+    final tool = ref.watch(annotationToolProvider);
+    final panEnabled = tool == AnnotationTool.pan;
 
     return PdfViewer(
       PdfDocumentRefDirect(document),
@@ -85,6 +85,10 @@ class _PdfViewerWidgetState extends ConsumerState<PdfViewerWidget> {
       params: PdfViewerParams(
         backgroundColor: Colors.transparent,
         panEnabled: panEnabled,
+        // Pinch-zoom (2 fingers) always on: doesn't conflict with the
+        // overlay's single-finger taps, so users can zoom regardless of
+        // the active annotation tool.
+        scaleEnabled: true,
         pageDropShadow: const BoxShadow(
           color: Colors.black26,
           blurRadius: 6,

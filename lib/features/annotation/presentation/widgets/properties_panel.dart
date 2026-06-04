@@ -44,6 +44,9 @@ class PropertiesPanel extends ConsumerWidget {
       case AnnotationTool.addStroke:
         title = 'Trazo';
         body = const _StrokeDefaults();
+      case AnnotationTool.pan:
+        title = null;
+        body = null;
       case AnnotationTool.select:
         if (selectedId != null) {
           final ann = ref
