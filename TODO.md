@@ -161,28 +161,28 @@
 ## SESIÓN 5 — UI/UX responsive y pulido transversal
 
 ### 5.1 Layout responsive
-- [ ] 🐞 📱 **App bar móvil no debe desbordar** ni recortar acciones ✅(fix: nav+zoom
+- [x] 🐞 📱 **App bar móvil no debe desbordar** ni recortar acciones ✅(fix: nav+zoom
       movidos a barra inferior; appbar = abrir + menú)
-- [ ] 📱 Barra inferior nueva no choca con el FAB de propiedades (verificar; reubicar FAB si tapa "ajustar")
-- [ ] 🖥️ Layout ancho: miniaturas + toolbar + visor + panel propiedades caben sin apreturas
-- [ ] 🖥️📱 Cambio de orientación / resize de ventana no rompe layout
-- [ ] 📱 Teclado al escribir texto no tapa el diálogo
+- [x] 📱 Barra inferior nueva no choca con el FAB de propiedades (verificar; reubicar FAB si tapa "ajustar")
+- [x] 🖥️ Layout ancho: miniaturas + toolbar + visor + panel propiedades caben sin apreturas
+- [x] 🖥️📱 Cambio de orientación / resize de ventana no rompe layout
+- [x] 📱 Teclado al escribir texto no tapa el diálogo
 
 ### 5.2 Herramientas (toolbar)
-- [ ] 🖥️ Toolbar vertical izquierda: iconos claros, herramienta activa marcada
-- [ ] 📱 Toolbar horizontal superior: todos los iconos accesibles (scroll si hace falta)
-- [ ] 🖥️📱 Tooltips/etiquetas comprensibles
-- [ ] 🖥️📱 Cursor correcto por herramienta (desktop)
+- [x] 🖥️ Toolbar vertical izquierda: iconos claros, herramienta activa marcada
+- [x] 📱 Toolbar horizontal superior: todos los iconos accesibles (scroll si hace falta)
+- [x] 🖥️📱 Tooltips/etiquetas comprensibles
+- [x] 🖥️📱 Cursor correcto por herramienta (desktop)
 
 ### 5.3 Tema y consistencia
-- [ ] 🖥️📱 Tema claro/oscuro coherente en todas las pantallas
-- [ ] 🖥️📱 Textos UI en español, sin strings sueltos en inglés
-- [ ] 🖥️📱 Estados vacíos / carga / error con mensajes claros
+- [x] 🖥️📱 Tema claro/oscuro coherente en todas las pantallas
+- [x] 🖥️📱 Textos UI en español, sin strings sueltos en inglés
+- [x] 🖥️📱 Estados vacíos / carga / error con mensajes claros
 
 ### 5.4 Robustez
-- [ ] 🖥️📱 No crashea al operar sin documento abierto
-- [ ] 🖥️📱 `flutter analyze` = 0 issues
-- [ ] 🖥️📱 Tests existentes pasan (`flutter test`)
+- [x] 🖥️📱 No crashea al operar sin documento abierto
+- [x] 🖥️📱 `flutter analyze` = 0 issues
+- [x] 🖥️📱 Tests existentes pasan (`flutter test`)
 
 ---
 
@@ -198,6 +198,7 @@
 | B6 | Handle de resize no seguía al mover | 🖥️📱 | 🟢 corregido (drag elevado al padre) |
 | — | Exportar en móvil no funcionaba (scoped storage) | 📱 | 🟢 corregido (Printing.sharePdf — compartir en vez de guardar a ruta) |
 | B7 | Guardar PROYECTO en móvil falla (PDF por SAF sin ruta) | 📱 | 🔴 pendiente — requiere guardar bytes del PDF, no la ruta |
+| B8 | PDF en blanco al cruzar el breakpoint responsive (Row↔Column) | 🖥️ | 🟢 corregido (GlobalKey en PdfViewerWidget → reparenting sin recrear estado) |
 
 ---
 
