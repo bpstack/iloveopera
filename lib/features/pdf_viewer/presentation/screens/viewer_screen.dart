@@ -53,11 +53,16 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
   Future<void> _exportPdf() async {
     await ref.read(exportProvider.notifier).exportPdf();
     if (!mounted) return;
+    final platform = Theme.of(context).platform;
+    final isMobile = platform == TargetPlatform.android ||
+        platform == TargetPlatform.iOS;
     ref.read(exportProvider).when(
       data: (_) => ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('PDF exportado correctamente.'),
-          duration: Duration(seconds: 3),
+        SnackBar(
+          content: Text(isMobile
+              ? 'PDF generado: elige dónde compartirlo.'
+              : 'PDF exportado correctamente.'),
+          duration: const Duration(seconds: 3),
         ),
       ),
       error: (e, _) => ScaffoldMessenger.of(context).showSnackBar(
@@ -393,7 +398,7 @@ class _EmptyState extends StatelessWidget {
           Icon(Icons.picture_as_pdf, size: 96, color: scheme.outline),
           const SizedBox(height: 12),
           Text(
-            'Aquí irá el visor PDF',
+            'Ningún documento abierto',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 4),
