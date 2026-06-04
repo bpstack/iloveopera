@@ -1251,6 +1251,35 @@ Si luego pulsas "Exportar PDF":
 
 ## 7. Comandos útiles del día a día
 
+### ⭐ Los dos que más vas a usar
+
+**Ejecutar la app en Windows** (desarrollo, con hot reload):
+
+```powershell
+flutter run -d windows
+```
+
+- Abre la app en una ventana de escritorio. Mientras corre: pulsa `r` para
+  *hot reload* (aplica cambios al instante) o `R` para *hot restart*.
+- Requisitos: VS Build Tools 2022 (workload "Desktop development with C++") y
+  Modo Desarrollador de Windows activado.
+
+**Generar el APK para el móvil** (Android, archivo instalable):
+
+```powershell
+flutter build apk --release
+```
+
+- El APK queda en: `build\app\outputs\flutter-apk\app-release.apk`
+- Pásalo al teléfono (cable, Drive, Telegram…) y ábrelo para instalar. La
+  primera vez Android pedirá permitir "instalar apps de orígenes desconocidos".
+- Va **firmado con la clave de debug** por defecto: sirve para uso personal y
+  pruebas. Para publicar en Play Store haría falta un keystore de release propio.
+- Para instalarlo directo con el móvil conectado por USB (depuración USB ON):
+  `flutter install` (o `flutter run -d <device-id>` para correrlo con hot reload).
+
+---
+
 ```powershell
 flutter run -d windows                    # ejecutar en Windows (debug, hot reload)
 flutter run -d <device-id>                # ejecutar en Android (ver `flutter devices`)
