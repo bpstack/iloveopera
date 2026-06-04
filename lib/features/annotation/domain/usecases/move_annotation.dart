@@ -1,5 +1,6 @@
 import '../entities/annotation.dart';
 import '../entities/page_rect.dart';
+import '../entities/pdf_point.dart';
 import '../repositories/annotation_store.dart';
 
 class MoveAnnotation {
@@ -14,9 +15,23 @@ class MoveAnnotation {
     final moved = switch (existing) {
       TextAnnotation() => existing.copyWith(rect: newRect),
       RectAnnotation() => existing.copyWith(rect: newRect),
-      StrokeAnnotation() => existing.copyWith(rect: newRect),
+      // A stroke's points are page-absolute, so moving the rect alone would
+      // leave the ink in place. Translate the points by the same delta.
+      StrokeAnnotation() => existing.copyWith(
+          rect: newRect,
+          points: _translatePoints(
+            existing.points,
+            newRect.x - existing.rect.x,
+            newRect.y - existing.rect.y,
+          ),
+        ),
       HighlightAnnotation() => existing.copyWith(rect: newRect),
     };
     return _store.update(moved);
+  }
+
+  List<PagePoint> _translatePoints(List<PagePoint> points, double dx, double dy) {
+    if (dx == 0 && dy == 0) return points;
+    return [for (final p in points) PagePoint(x: p.x + dx, y: p.y + dy)];
   }
 }

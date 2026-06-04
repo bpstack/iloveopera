@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:iloveopera/features/annotation/domain/entities/annotation.dart';
 import 'package:iloveopera/features/annotation/domain/entities/page_rect.dart';
+import 'package:iloveopera/features/annotation/domain/entities/pdf_point.dart';
 import 'package:iloveopera/features/annotation/domain/repositories/annotation_store.dart';
 import 'package:iloveopera/features/annotation/domain/usecases/add_annotation.dart';
 import 'package:iloveopera/features/annotation/domain/usecases/move_annotation.dart';
@@ -106,6 +107,24 @@ void main() {
     test('returns false on unknown id', () {
       final ok = move('nope', const PageRect(x: 0, y: 0, width: 1, height: 1));
       expect(ok, isFalse);
+    });
+
+    test('moving a stroke translates its points by the same delta', () {
+      add(Annotation.stroke(
+        id: 's1',
+        pageNumber: 1,
+        points: const [PagePoint(x: 10, y: 20), PagePoint(x: 30, y: 40)],
+        rect: const PageRect(x: 10, y: 20, width: 20, height: 20),
+        colorArgb: 0xFF000000,
+        strokeWidth: 2,
+      ));
+      // Move the box by (+5, -8).
+      final ok = move('s1', const PageRect(x: 15, y: 12, width: 20, height: 20));
+      expect(ok, isTrue);
+      final moved = store.getById('s1')! as StrokeAnnotation;
+      expect(moved.rect.x, 15);
+      expect(moved.rect.y, 12);
+      expect(moved.points, const [PagePoint(x: 15, y: 12), PagePoint(x: 35, y: 32)]);
     });
   });
 
