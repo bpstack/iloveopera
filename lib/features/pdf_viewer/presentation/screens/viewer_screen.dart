@@ -26,6 +26,13 @@ class ViewerScreen extends ConsumerStatefulWidget {
 class _ViewerScreenState extends ConsumerState<ViewerScreen> {
   bool _opening = false;
 
+  // Stable key for the PDF viewer so it survives the wide↔narrow layout switch.
+  // Crossing the 700 dp breakpoint changes the body from a Row to a Column;
+  // without a GlobalKey, Flutter rebuilds the subtree, recreating the viewer's
+  // State (and pdfrx render surface) → the page would blank out. The GlobalKey
+  // makes Flutter reparent the same element instead of destroying it.
+  final GlobalKey _pdfViewerKey = GlobalKey();
+
   Future<void> _saveProject() async {
     try {
       final project =
@@ -129,7 +136,7 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
               if (hasDocument && wide) const VerticalDivider(width: 1),
               Expanded(
                 child: hasDocument
-                    ? const PdfViewerWidget()
+                    ? PdfViewerWidget(key: _pdfViewerKey)
                     : _EmptyState(onOpen: _openPdf, busy: _opening),
               ),
               if (hasDocument && wide) const VerticalDivider(width: 1),
