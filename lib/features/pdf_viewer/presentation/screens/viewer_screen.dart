@@ -251,8 +251,8 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
                 child: ListTile(
                   leading: isExporting
                       ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.download),
-                  title: const Text('Exportar PDF'),
+                      : const Icon(Icons.share_outlined),
+                  title: const Text('Compartir PDF'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),

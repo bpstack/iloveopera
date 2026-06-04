@@ -32,6 +32,12 @@ class RasterPdfExporter implements PdfExporter {
 
   @override
   Future<void> export({required int dpi, required String outputPath}) async {
+    final bytes = await buildBytes(dpi: dpi);
+    await File(outputPath).writeAsBytes(bytes);
+  }
+
+  @override
+  Future<Uint8List> buildBytes({required int dpi}) async {
     // Preload and embed all curated fonts
     final Map<String, pw.Font> fonts = {};
     for (final family in FontRegistry.curado) {
@@ -86,8 +92,7 @@ class RasterPdfExporter implements PdfExporter {
       );
     }
 
-    final bytes = await pdfDoc.save();
-    await File(outputPath).writeAsBytes(bytes);
+    return pdfDoc.save();
   }
 
   // ---------------------------------------------------------------------------

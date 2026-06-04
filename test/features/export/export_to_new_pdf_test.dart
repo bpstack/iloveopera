@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:iloveopera/features/export/domain/repositories/pdf_exporter.dart';
 import 'package:iloveopera/features/export/domain/usecases/export_to_new_pdf.dart';
@@ -13,6 +15,9 @@ class _CapturExporter implements PdfExporter {
     capturedDpi = dpi;
     capturedPath = outputPath;
   }
+
+  @override
+  Future<Uint8List> buildBytes({required int dpi}) async => Uint8List(0);
 }
 
 void main() {
@@ -39,6 +44,11 @@ void main() {
 class _ThrowingExporter implements PdfExporter {
   @override
   Future<void> export({required int dpi, required String outputPath}) {
+    throw StateError('Export failed intentionally.');
+  }
+
+  @override
+  Future<Uint8List> buildBytes({required int dpi}) {
     throw StateError('Export failed intentionally.');
   }
 }
