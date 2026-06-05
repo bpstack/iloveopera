@@ -1,6 +1,10 @@
 # Certificado de firma (clave privada — no subir al repo)
 windows/iloveopera.pfx
 
+# Documentación interna
+iloveopera-doc.md
+BUILD.md
+
 # Miscellaneous
 *.class
 *.log
