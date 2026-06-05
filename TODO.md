@@ -202,6 +202,29 @@
 
 ---
 
+---
+
+## Automatización futura (GitHub Actions)
+
+> **Cuándo vale la pena:** cuando haya más de un colaborador tocando el código, o cuando
+> publiques versiones con frecuencia (más de una al mes). Con un solo desarrollador y
+> releases ocasionales, hacerlo a mano es perfectamente válido.
+
+### Qué automatizar y por qué
+
+- **CI en cada push** — ejecutar `flutter analyze` + `flutter test` automáticamente.
+  Evita subir código roto sin darte cuenta. Corre en Linux (rápido, gratis).
+
+- **Release automático al crear un tag** — cuando hagas `git tag v1.x.x`, que un robot
+  compile el APK y el ZIP de Windows y los suba a GitHub Releases solo.
+  Útil cuando los releases sean frecuentes y hacerlo a mano se vuelva tedioso.
+
+### Limitación conocida de Windows en CI
+El build de Windows tarda ~15-20 min en los servidores de GitHub (necesita Visual Studio).
+Por eso se recomienda dispararlo solo en tags, no en cada push.
+
+---
+
 ## Método de trabajo por sesión
 1. Tomar UNA sección (o subsección) de este TODO.
 2. Reproducir cada ítem en la(s) plataforma(s) indicada(s).
